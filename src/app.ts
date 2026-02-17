@@ -60,6 +60,9 @@
 import express, { Request, Response } from "express"
 import dotenv from "dotenv"
 
+// Routes
+import producutRoutes from "./routes/productRoutes"
+
 const app = express()
 const port = 3000
 dotenv.config();
@@ -67,6 +70,8 @@ dotenv.config();
 app.get('/', (req: Request, res: Response) => {
   res.send('Testing!')
 })
+
+app.use("/products", producutRoutes);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
