@@ -64,8 +64,11 @@ import dotenv from "dotenv"
 import producutRoutes from "./routes/productRoutes"
 
 const app = express()
-const port = 3000
+const port = process.env.PORT
 dotenv.config();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Testing!')
