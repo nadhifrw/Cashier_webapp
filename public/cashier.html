@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cashier KANALA</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/cashier.css">
+</head>
+<body>
+  <div class="cashier-layout">
+    <!-- Header -->
+    <header class="cashier-header">
+      <h1>KANALA CASHIER</h1>
+      <div class="user-info">
+        <span>Welcome, <strong id="userName">User</strong> | <strong id="userRole">Role</strong></span>
+        <button class="btn" id="logoutBtn">Logout</button>
+      </div>
+    </header>
+
+    <!-- Products Section -->
+    <section class="products-section">
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search products..."
+          autocomplete="off"
+        >
+      </div>
+
+      <!-- Products Grid -->
+      <div class="products-grid" id="productsGrid">
+        <div class="loading">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cart Sidebar -->
+    <aside class="cart-sidebar">
+      <div class="cart-header">
+        <h2 class="cart-title">Keranjang</h2>
+        <p class="cart-count">Items: <strong id="cartCount">0</strong></p>
+      </div>
+
+      <!-- Cart Items -->
+      <div class="cart-items" id="cartItems">
+        <div class="empty-cart">
+          <div class="empty-cart-icon">📭</div>
+          <p>Keranjang kosong</p>
+        </div>
+      </div>
+
+      <!-- Cart Footer / Checkout -->
+      <div class="cart-footer">
+        <!-- Summary -->
+        <div class="cart-summary">
+          <div class="summary-row subtotal">
+            <span>Subtotal:</span>
+            <span id="subtotal">$0.00</span>
+          </div>
+          <!-- <div class="summary-row tax">
+            <span>Tax (10%):</span>
+            <span id="taxAmount">$0.00</span>
+          </div> -->
+          <div class="summary-row total">
+            <span>Total:</span>
+            <span class="total-amount" id="totalAmount">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Checkout Form -->
+        <form class="checkout-form" id="checkoutForm">
+          <select id="paymentMethod" required>
+            <option value="">Metode Pembayaran</option>
+            <option value="cash">Cash</option>
+            <option value="qris">QRIS</option>
+            <!-- <option value="card">Credit/Debit Card</option>
+            <option value="check">Check</option>
+            <option value="mobile">Mobile Payment</option> -->
+          </select>
+
+          <input 
+            type="number" 
+            id="amountPaid" 
+            placeholder="Total dibayar" 
+            step="0.01"
+            required
+          >
+
+          <div class="checkout-buttons">
+            <button type="reset" class="btn btn-secondary">Clear</button>
+            <button type="submit" class="btn btn-primary">Checkout</button>
+          </div>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Support Modules -->
+  <script src="/js/formatter.js"></script>
+  <script src="/js/validator.js"></script>
+  <script src="/js/errorHandler.js"></script>
+  <script src="/js/storage.js"></script>
+  <script src="/js/logger.js"></script>
+  
+  <!-- Core Modules -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/cart.js"></script>
+  <script src="/js/products.js"></script>
+  <script src="/js/cashier.js"></script>
+</body>
+</html>

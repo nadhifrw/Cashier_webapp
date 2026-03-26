@@ -1,7 +1,6 @@
 export type InventoryType = 'unit' | 'weight';
 export type BaseUnit = 'pcs' | 'g';
 export type SalesUnit = 'pcs' | 'g' | 'kg';
-
 export interface Product {
     id: string;
     name: string;
@@ -17,7 +16,6 @@ export interface Product {
     createdAt?: Date;
     updatedAt?: Date;
 }
-
 export interface CreateProduct {
     id: string;
     name: string;
@@ -31,7 +29,6 @@ export interface CreateProduct {
     saleStep?: number;
     category?: string;
 }
-    
 export interface UpdateProduct {
     id?: string;
     name?: string;
@@ -46,3 +43,4 @@ export interface UpdateProduct {
     category?: string;
     updatedAt?: Date;
 }
+//# sourceMappingURL=product.d.ts.map

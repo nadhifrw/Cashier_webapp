@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin KANALA - Cashier App</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Header -->
+    <header class="admin-header">
+      <h1>KANALA Admin Panel</h1>
+      <div class="user-info">
+        <span>Welcome, <strong id="userName">Admin</strong></span>
+        <button class="btn" id="logoutBtn">Logout</button>
+      </div>
+    </header>
+
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar">
+      <nav class="sidebar-nav">
+        <li><button data-section="dashboard" class="nav-btn active">Dashboard</button></li>
+        <li><button data-section="products" class="nav-btn">Produk</button></li>
+        <li><button data-section="users" class="nav-btn">Management User</button></li>
+        <li><button data-section="transactions" class="nav-btn">Transaksi</button></li>
+        <li><button data-section="reports" class="nav-btn">Laporan Penjualan</button></li>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="content-section active">
+        <div class="section-header">
+          <h2>Dashboard</h2>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Produk</div>
+            <div class="stat-value" id="totalProducts">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="totalUsers">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Transaksi Hari ini</div>
+            <div class="stat-value" id="totalTransactions">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Stock Sedikit</div>
+            <div class="stat-value" id="totalLowStock">0</div>
+          </div>
+        </div>
+
+        <div class="dashboard-warning-card">
+          <h3>⚠️ Stock Sedikit</h3>
+          <ul id="lowStockList" class="low-stock-list">
+            <li class="low-stock-empty">Tidak ada produk dengan stok rendah.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Products Section -->
+      <section id="products" class="content-section">
+        <div class="section-header">
+          <h2>Management Produk</h2>
+          <button class="btn btn-primary" id="addProductBtn">+ Tambah Produk baru</button>
+        </div>
+
+        <!-- Add/Edit Product Form -->
+        <div class="form-container" id="productFormContainer" style="display: none;">
+          <div class="form-header">
+            <h3 id="productFormTitle">Tambah Produk Baru</h3>
+            <p id="productFormDesc"placeholder="Optional"></p>
+          </div>
+
+          <form id="productForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productId">Product ID</label>
+                <input type="text" id="productId" required>
+              </div>
+              <div class="form-group">
+                <label for="productName">Product Name</label>
+                <input type="text" id="productName" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productPrice">Price (Rp)</label>
+                <input type="number" id="productPrice" step="0.01" min="0" required>
+              </div>
+              <div class="form-group">
+                <label for="productStock">Quantity On Hand</label>
+                <input type="number" id="productStock" step="0.01" min="0" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productInventoryType">Inventory Type</label>
+                <select id="productInventoryType" required>
+                  <option value="unit">Unit</option>
+                  <option value="weight">Weight</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="productSalesUnit">Sell Unit</label>
+                <select id="productSalesUnit" required>
+                  <option value="pcs">pcs</option>
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productLowStockThreshold">Low Stock Threshold</label>
+                <input type="number" id="productLowStockThreshold" step="0.01" min="0" value="10" required>
+              </div>
+            </div>
+
+            <div class="form-row full">
+              <div class="form-group">
+                <label for="productDescription">Description</label>
+                <textarea id="productDescription" rows="3" placeholder="Optional"></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Save Product</button>
+              <button type="button" class="btn btn-secondary" onclick="cancelProductForm()">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Products Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Product ID</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Available</th>
+                <th>Type</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--gray-500);">Loading products...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Users Section -->
+      <section id="users" class="content-section">
+        <div class="section-header">
+          <h2>Management Users</h2>
+          <button class="btn btn-primary" id="registerUserBtn">+ Register User</button>
+        </div>
+
+        <!-- Register User Form -->
+        <div class="form-container" id="userFormContainer" style="display: none;">
+          <div class="form-header">
+            <h3>Register Pengguna Baru</h3>
+            <p>Buat akun pengguna baru</p>
+          </div>
+
+          <form id="userForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="userName">Nama Lengkap</label>
+                <input type="text" id="userName" required>
+              </div>
+              <div class="form-group">
+                <label for="userUsername">Username</label>
+                <input type="text" id="userUsername" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="userEmail">Email</label>
+                <input type="email" id="userEmail" required>
+              </div>
+              <div class="form-group">
+                <label for="userRole">Role</label>
+                <select id="userRole" required>
+                  <option value="">Pilih Role</option>
+                  <option value="cashier">Cashier</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row full">
+              <div class="form-group">
+                <label for="userPassword">Password</label>
+                <input type="password" id="userPassword" placeholder="Min 6 characters" required>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Register User</button>
+              <button type="button" class="btn btn-secondary" onclick="cancelUserForm()">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Users Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--gray-500);">Loading users...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Transactions Section -->
+      <section id="transactions" class="content-section">
+        <div class="section-header">
+          <h2>Daftar Pembelian</h2>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Transaction ID</th>
+                <th>Cashier</th>
+                <th>Produk</th>
+                <th>Total</th>
+                <th>Payment</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--gray-500);">Loading transactions...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Reports Section -->
+      <section id="reports" class="content-section">
+        <div class="section-header">
+          <h2>Laporan</h2>
+        </div>
+
+        <!-- Report Filters -->
+        <div class="report-filters">
+          <div class="form-group">
+            <label for="reportType">Report Type</label>
+            <select id="reportType" onchange="loadReportData()">
+              <option value="daily">Laporan Harian</option>
+              <option value="monthly">Laporan Bulanan</option>
+              <option value="inventory-status">Status Inventaris</option>
+              <option value="cashier-performance">Performa Kasir</option>
+              <option value="revenue-trend">Tren Pendapatan</option>
+            </select>
+          </div>
+
+          <!-- Daily Report Filter -->
+          <div id="dailyFilter" class="form-group">
+            <label for="dailyDate">Select Date</label>
+            <input type="date" id="dailyDate" />
+          </div>
+
+          <!-- Monthly Report Filter -->
+          <div id="monthlyFilter" class="form-group" style="display: none;">
+            <label for="monthYear">Select Month</label>
+            <input type="month" id="monthYear" />
+          </div>
+
+          <!-- Date Range Filter -->
+          <div id="dateRangeFilter" class="form-group" style="display: none;">
+            <label for="startDate">Start Date</label>
+            <input type="date" id="startDate" />
+            <label for="endDate">End Date</label>
+            <input type="date" id="endDate" />
+          </div>
+
+          <!-- Revenue Trend Filter -->
+          <div id="trendFilter" class="form-group" style="display: none;">
+            <label for="trendDays">Number of Days</label>
+            <select id="trendDays">
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+              <option value="60">Last 60 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" onclick="loadReportData()" style="padding: 10px 20px;">Generate Report</button>
+        </div>
+
+        <!-- Report Results -->
+        <div id="reportResults" class="report-results">
+          <div style="text-align: center; color: var(--gray-500); padding: 60px 20px;">
+            Select a report type and click "Generate Report" to view results
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Support Modules -->
+  <script src="/js/formatter.js"></script>
+  <script src="/js/validator.js"></script>
+  <script src="/js/errorHandler.js"></script>
+  <script src="/js/storage.js"></script>
+  <script src="/js/logger.js"></script>
+  
+  <!-- Core Modules -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
