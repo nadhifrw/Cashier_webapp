@@ -27,7 +27,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Health check
-app.get('/', (req: Request, res: Response) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
     message: 'Cashier Web App API',

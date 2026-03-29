@@ -65,7 +65,7 @@ const Auth = {
    * Redirect to login page
    */
   redirectToLogin() {
-    window.location.href = '/';
+    window.location.href = '/index.html';
   },
 
   /**
