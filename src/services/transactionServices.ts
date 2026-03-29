@@ -68,8 +68,8 @@ export const TransactionServices = {
             // Calculate totals
             const subtotal = input.items.reduce((sum, item) => sum + item.subtotal, 0);
             const discount = input.discount || 0;
-            const tax = (subtotal - discount) * 0.1; // Assuming 10% tax
-            const total = subtotal - discount + tax;
+            const tax = 0;
+            const total = subtotal - discount;
             const change = input.amountPaid - total;
             const receiptDate = (new Date().toISOString().split('T')[0] || '').replace(/-/g, '');
             const receiptNumber = `TXN-${receiptDate}-${Date.now()}`;
@@ -213,8 +213,8 @@ export const TransactionServices = {
                 const items = input.items || transactionDoc.data()?.items;
                 const discount = input.discount !== undefined ? input.discount : transactionDoc.data()?.discount;
                 const subtotal = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
-                const tax = (subtotal - discount) * 0.1;
-                const total = subtotal - discount + tax;
+                const tax = 0;
+                const total = subtotal - discount;
                 const amountPaid = input.amountPaid || transactionDoc.data()?.amountPaid;
 
                 updateData.subtotal = subtotal;

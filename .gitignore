@@ -29,3 +29,4 @@ Thumbs.db
 *.tsbuildinfo
 
 /import-xslx.mjs
+/vercel.json
