@@ -36,6 +36,11 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Root route should open the login page
+app.get('/', (req: Request, res: Response) => {
+  res.redirect('/index.html');
+});
+
 // API Routes
 app.use("/products", productRoutes);
 app.use("/cart", transactionRoutes);
