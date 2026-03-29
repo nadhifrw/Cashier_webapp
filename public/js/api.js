@@ -4,7 +4,7 @@
  */
 
 const API = {
-  BASE_URL: 'http://localhost:8080',
+  BASE_URL: '',
   TOKEN_KEY: 'cashier_token',
   REFRESH_TOKEN_KEY: 'cashier_refresh_token',
   USER_KEY: 'cashier_user',
