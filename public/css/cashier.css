@@ -6,7 +6,8 @@
   display: grid;
   grid-template-columns: 1fr 350px;
   gap: 0;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
   overflow: hidden;
   background: var(--gray-50);
 }
@@ -63,7 +64,7 @@
 .products-section {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   overflow: hidden;
 }
 
@@ -201,7 +202,7 @@
   border-left: 1px solid var(--gray-200);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   overflow: hidden;
   box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
 }
@@ -508,6 +509,15 @@
     max-height: 260px;
     overflow-y: auto;
   }
+
+  .checkout-buttons {
+    flex-wrap: wrap;
+  }
+
+  .checkout-buttons .btn {
+    min-width: 120px;
+    flex: 1 1 calc(50% - 8px);
+  }
 }
 
 @media (max-width: 480px) {
@@ -525,6 +535,14 @@
   .cashier-header .user-info {
     width: 100%;
     font-size: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cashier-header .user-info span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .products-grid {

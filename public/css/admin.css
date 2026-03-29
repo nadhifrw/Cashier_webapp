@@ -177,7 +177,9 @@
   background: white;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -564,22 +566,53 @@ tbody tr:last-child td {
   }
 
   .admin-sidebar {
-    position: fixed;
-    left: -250px;
-    top: 60px;
-    width: 250px;
-    height: calc(100vh - 60px);
-    z-index: 999;
-    transition: left 0.3s ease;
+    position: static;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: auto;
+    z-index: auto;
+    transition: none;
     background: white;
+    border-right: none;
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 12px;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .admin-sidebar.open {
-    left: 0;
+  .sidebar-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: max-content;
+  }
+
+  .sidebar-nav li {
+    flex: 0 0 auto;
+  }
+
+  .sidebar-nav button {
+    width: auto;
+    padding: 10px 12px;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .sidebar-nav button.active {
+    border-left-color: transparent;
+    border-bottom-color: #8b5cf6;
   }
 
   .admin-main {
     grid-column: 1;
+    grid-row: 3;
+    padding-top: 20px;
   }
 
   .form-row {
@@ -615,6 +648,7 @@ tbody tr:last-child td {
 
   table {
     font-size: 12px;
+    min-width: 640px;
   }
 
   th,
@@ -628,6 +662,10 @@ tbody tr:last-child td {
 
   .btn-small {
     width: 100%;
+  }
+
+  .table-container {
+    border: 1px solid var(--gray-200);
   }
 }
 
