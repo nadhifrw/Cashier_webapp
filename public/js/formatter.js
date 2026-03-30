@@ -92,8 +92,8 @@ const Formatter = {
    */
   formatPaymentMethod(method) {
     const methodNames = {
-      cash: '💵 Tunai',
-      qris: '📲 QRIS',
+      cash: 'Tunai',
+      qris: 'QRIS',
     };
     return methodNames[method] || method;
   },
