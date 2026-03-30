@@ -325,8 +325,20 @@ function editProduct(productId) {
   document.getElementById('productStock').value = salesQuantity;
   document.getElementById('productLowStockThreshold').value = convertBaseToSales(inventory.lowStockThreshold, inventory.baseUnit, inventory.salesUnit);
   document.getElementById('productDescription').value = product.description || '';
-  document.getElementById('productFormContainer').style.display = 'block';
+  const formContainer = document.getElementById('productFormContainer');
+  formContainer.style.display = 'block';
   document.querySelector('#productFormContainer button[type="submit"]').textContent = 'Update Product';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  formContainer.scrollIntoView({
+    behavior: reduceMotion ? 'auto' : 'smooth',
+    block: 'start'
+  });
+
+  const nameInput = document.getElementById('productName');
+  if (nameInput) {
+    setTimeout(() => nameInput.focus(), reduceMotion ? 0 : 150);
+  }
 }
 
 /**
