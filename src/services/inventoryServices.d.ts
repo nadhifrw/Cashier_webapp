@@ -1,3 +1,4 @@
+import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 export interface Product {
     id: string;
     name: string;
@@ -42,27 +43,36 @@ export declare const InventoryServices: {
         change: number;
     }>;
     /**
-     * Get low stock products
+     * Get low stock products with pagination
      */
-    getLowStockProducts(threshold?: number): Promise<Product[]>;
+    getLowStockProducts(threshold?: number, limit?: number, startAfter?: QueryDocumentSnapshot): Promise<{
+        products: Product[];
+        nextCursor?: QueryDocumentSnapshot;
+        hasMore: boolean;
+    }>;
     /**
      * Get out of stock products
      */
     getOutOfStockProducts(): Promise<Product[]>;
     /**
-     * Get all products with stock info
+     * Get all products with stock info - with pagination
      */
-    getAllProductsWithStock(): Promise<Product[]>;
+    getAllProductsWithStock(limit?: number, startAfter?: QueryDocumentSnapshot): Promise<{
+        products: Product[];
+        nextCursor?: QueryDocumentSnapshot;
+        hasMore: boolean;
+    }>;
     /**
-     * Get inventory summary
+     * Get inventory summary (limited to 10 batches of products to reduce reads)
      */
-    getInventorySummary(): Promise<{
+    getInventorySummary(batchSize?: number, maxBatches?: number): Promise<{
         totalProducts: number;
         totalItems: number;
         totalValue: number;
         lowStockCount: number;
         outOfStockCount: number;
         averageStockPerProduct: number;
+        note: string;
     }>;
     /**
      * Log stock changes

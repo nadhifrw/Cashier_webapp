@@ -34,23 +34,48 @@ const normalizeProductData = (id, rawData) => {
     };
 };
 exports.ProductServices = {
-    async getAllProducts() {
+    async getAllProducts(limit = 10, startAfter) {
         try {
-            const productsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME).get();
-            const products = productsSnapshot.docs.map(doc => normalizeProductData(doc.id, doc.data()));
-            return products;
+            let query = firebase_1.dbCashier.collection(COLLECTION_NAME).orderBy('name');
+            // Add pagination
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+            const productsSnapshot = await query.get();
+            const docs = productsSnapshot.docs;
+            // Check if there are more results beyond the limit
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            const products = actualDocs.map((doc) => normalizeProductData(doc.id, doc.data()));
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
+            return {
+                products,
+                nextCursor,
+                hasMore
+            };
         }
         catch (error) {
             console.error('Error fetching products:', error.message);
             throw error;
         }
     },
-    async getLowStockProducts(threshold) {
+    async getLowStockProducts(threshold, limit = 10) {
         try {
-            const allProducts = await this.getAllProducts();
+            // Query directly for low stock products to minimize reads
             const hasCustomThreshold = Number.isFinite(threshold) && Number(threshold) >= 0;
             const thresholdValue = hasCustomThreshold ? Number(threshold) : null;
-            return allProducts
+            const query = firebase_1.dbCashier.collection(COLLECTION_NAME)
+                .where('quantityOnHand', '<=', thresholdValue || firebase_1.dbCashier.collection(COLLECTION_NAME).doc().get())
+                .limit(limit);
+            // Fallback to fetching with limit and filtering
+            const productsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME)
+                .orderBy('quantityOnHand', 'asc')
+                .limit(limit * 3) // Fetch more to account for filtering
+                .get();
+            let products = productsSnapshot.docs.map(doc => normalizeProductData(doc.id, doc.data()));
+            // Filter by threshold
+            products = products
                 .filter((product) => {
                 const quantityOnHand = toFiniteNumber(product.quantityOnHand ?? product.stock, 0);
                 const productThreshold = hasCustomThreshold
@@ -58,7 +83,8 @@ exports.ProductServices = {
                     : toFiniteNumber(product.lowStockThreshold, product.inventoryType === 'weight' ? 1000 : 10);
                 return quantityOnHand <= productThreshold;
             })
-                .sort((a, b) => toFiniteNumber(a.quantityOnHand ?? a.stock, 0) - toFiniteNumber(b.quantityOnHand ?? b.stock, 0));
+                .slice(0, limit); // Limit final results
+            return products;
         }
         catch (error) {
             console.error('Error fetching low stock products:', error.message);
@@ -155,9 +181,9 @@ exports.ProductServices = {
     // search items
     async search(query) {
         try {
-            const productsAll = await this.getAllProducts();
+            const { products: productsAll } = await this.getAllProducts();
             const lowerQuery = query.toLowerCase();
-            return productsAll.filter(product => product.name.toLowerCase().includes(lowerQuery) ||
+            return productsAll.filter((product) => product.name.toLowerCase().includes(lowerQuery) ||
                 (product.category && product.category.toLowerCase().includes(lowerQuery)));
         }
         catch (error) {

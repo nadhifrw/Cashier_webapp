@@ -1,7 +1,11 @@
 import { Product, CreateProduct, UpdateProduct } from '../models/product';
 export declare const ProductServices: {
-    getAllProducts(): Promise<Product[]>;
-    getLowStockProducts(threshold?: number): Promise<Product[]>;
+    getAllProducts(limit?: number, startAfter?: any): Promise<{
+        products: Product[];
+        nextCursor?: any;
+        hasMore: boolean;
+    }>;
+    getLowStockProducts(threshold?: number, limit?: number): Promise<Product[]>;
     createProduct(input: CreateProduct): Promise<Product>;
     update(id: string, input: UpdateProduct): Promise<Product | null>;
     delete(id: string): Promise<void>;

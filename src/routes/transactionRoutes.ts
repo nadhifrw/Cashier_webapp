@@ -123,13 +123,20 @@ router.get('/cashier/:cashierId/transactions', async (req: Request, res: Respons
     }
 });
 
-// Get all transactions (READ ALL) - Admin only
+// Get all transactions (READ ALL) with pagination - Admin only
 router.get('/cart', isAdmin, async (req: Request, res: Response) => {
     try {
-        const transactions = await TransactionServices.getAllTransactions();
+        const {limit, startAfter} = req.query;
+        const pageLimit = limit ? Math.min(parseInt(limit as string), 50) : 10; // Max 50 items per page
+        const result = await TransactionServices.getAllTransactions(pageLimit, startAfter ? JSON.parse(startAfter as string) : undefined);
+        
         res.status(200).json({ 
             success: true, 
-            data: transactions 
+            data: result.transactions,
+            pagination: {
+                hasMore: result.hasMore,
+                nextCursor: result.nextCursor ? 'cursor_available' : null
+            }
         });
     } catch (error) {
         console.error('Error:', error);

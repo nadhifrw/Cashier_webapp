@@ -1,4 +1,4 @@
-import { getFirestore } from 'firebase-admin/firestore';
+import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { dbCashier } from '../config/firebase';
 
 const COLLECTION_NAME = 'products';
@@ -84,18 +84,38 @@ export const InventoryServices = {
     },
 
     /**
-     * Get low stock products
+     * Get low stock products with pagination
      */
-    async getLowStockProducts(threshold: number = 10) {
+    async getLowStockProducts(
+        threshold: number = 10,
+        limit: number = 10,
+        startAfter?: QueryDocumentSnapshot
+    ): Promise<{ products: Product[]; nextCursor?: QueryDocumentSnapshot; hasMore: boolean }> {
         try {
-            const snapshot = await dbCashier.collection(COLLECTION_NAME)
+            let query = dbCashier.collection(COLLECTION_NAME)
                 .where('stock', '<=', threshold)
-                .get();
+                .orderBy('stock', 'asc');
+            
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to check if there are more
+            
+            const snapshot = await query.get();
+            const docs: QueryDocumentSnapshot[] = snapshot.docs;
+            
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
 
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Product[];
+            return {
+                products: actualDocs.map((doc: QueryDocumentSnapshot) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                })) as Product[],
+                ...(nextCursor ? { nextCursor } : {}),
+                hasMore
+            };
         } catch (error) {
             console.error('Error getting low stock products:', (error as Error).message);
             throw error;
@@ -122,18 +142,36 @@ export const InventoryServices = {
     },
 
     /**
-     * Get all products with stock info
+     * Get all products with stock info - with pagination
      */
-    async getAllProductsWithStock() {
+    async getAllProductsWithStock(
+        limit: number = 10,
+        startAfter?: QueryDocumentSnapshot
+    ): Promise<{ products: Product[]; nextCursor?: QueryDocumentSnapshot; hasMore: boolean }> {
         try {
-            const snapshot = await dbCashier.collection(COLLECTION_NAME)
-                .orderBy('stock', 'desc')
-                .get();
+            let query = dbCashier.collection(COLLECTION_NAME)
+                .orderBy('stock', 'desc');
+            
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to check if there are more
+            
+            const snapshot = await query.get();
+            const docs: QueryDocumentSnapshot[] = snapshot.docs;
+            
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
 
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Product[];
+            return {
+                products: actualDocs.map((doc: QueryDocumentSnapshot) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                })) as Product[],
+                ...(nextCursor ? { nextCursor } : {}),
+                hasMore
+            };
         } catch (error) {
             console.error('Error getting products with stock:', (error as Error).message);
             throw error;
@@ -141,22 +179,46 @@ export const InventoryServices = {
     },
 
     /**
-     * Get inventory summary
+     * Get inventory summary (limited to 10 batches of products to reduce reads)
      */
-    async getInventorySummary() {
+    async getInventorySummary(batchSize: number = 10, maxBatches: number = 1) {
         try {
-            const snapshot = await dbCashier.collection(COLLECTION_NAME).get();
-            const products = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Product[];
+            let allProducts: Product[] = [];
+            let startAfterDoc: QueryDocumentSnapshot | null = null;
+            
+            // Fetch in batches to limit reads
+            for (let i = 0; i < maxBatches; i++) {
+                let query = dbCashier.collection(COLLECTION_NAME).orderBy('name');
+                
+                if (startAfterDoc) {
+                    query = query.startAfter(startAfterDoc);
+                }
+                
+                const snapshot = await query.limit(batchSize + 1).get();
+                const docs: QueryDocumentSnapshot[] = snapshot.docs;
+                
+                if (docs.length === 0) break;
+                
+                const hasMore = docs.length > batchSize;
+                const actualDocs = hasMore ? docs.slice(0, batchSize) : docs;
+                
+                allProducts.push(...actualDocs.map((doc: QueryDocumentSnapshot) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                })) as Product[]);
+                
+                if (!hasMore) break;
+                const lastDoc = actualDocs[actualDocs.length - 1];
+                if (!lastDoc) break;
+                startAfterDoc = lastDoc;
+            }
 
             let totalItems = 0;
             let totalValue = 0;
             let lowStockCount = 0;
             let outOfStockCount = 0;
 
-            for (const product of products) {
+            for (const product of allProducts) {
                 totalItems += product.stock || 0;
                 totalValue += (product.stock || 0) * (product.price || 0);
                 
@@ -168,12 +230,13 @@ export const InventoryServices = {
             }
 
             return {
-                totalProducts: products.length,
+                totalProducts: allProducts.length,
                 totalItems,
                 totalValue,
                 lowStockCount,
                 outOfStockCount,
-                averageStockPerProduct: totalItems / products.length,
+                averageStockPerProduct: allProducts.length > 0 ? totalItems / allProducts.length : 0,
+                note: 'Summary limited to first ' + (batchSize * maxBatches) + ' products to minimize reads'
             };
         } catch (error) {
             console.error('Error getting inventory summary:', (error as Error).message);

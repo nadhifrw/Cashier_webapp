@@ -30,17 +30,26 @@ router.get('/low-stock', isAuthenticated, allowRead, async (req: Request, res: R
     }
 });
 
-// getting all products
+// getting all products with pagination (default 10 per page)
 router.get('/', isAuthenticated, allowRead, async (req: Request, res: Response) => {
     try {
         // const productsSnapshot = await getDocs(productServices);
-        const {search} = req.query;
+        const {search, limit, startAfter} = req.query;
         if (search) {
             const products = await ProductServices.search(search as string);
             return res.json({ success: true, data: products, message: "seach works" });
         } else {
-            const products = await ProductServices.getAllProducts();
-            res.json({ success: true, data: products, message: "get all products works" });
+            const pageLimit = limit ? Math.min(parseInt(limit as string), 50) : 10; // Max 50 items per page
+            const result = await ProductServices.getAllProducts(pageLimit, startAfter ? JSON.parse(startAfter as string) : undefined);
+            res.json({ 
+                success: true, 
+                data: result.products,
+                pagination: {
+                    hasMore: result.hasMore,
+                    nextCursor: result.nextCursor ? 'cursor_available' : null
+                },
+                message: "get all products works" 
+            });
         }
     } catch (error) {
         res.status(500).json({

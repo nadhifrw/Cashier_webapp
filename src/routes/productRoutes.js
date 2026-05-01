@@ -29,18 +29,27 @@ router.get('/low-stock', middleware_1.isAuthenticated, allowRead, async (req, re
         });
     }
 });
-// getting all products
+// getting all products with pagination (default 10 per page)
 router.get('/', middleware_1.isAuthenticated, allowRead, async (req, res) => {
     try {
         // const productsSnapshot = await getDocs(productServices);
-        const { search } = req.query;
+        const { search, limit, startAfter } = req.query;
         if (search) {
             const products = await productServices_1.ProductServices.search(search);
             return res.json({ success: true, data: products, message: "seach works" });
         }
         else {
-            const products = await productServices_1.ProductServices.getAllProducts();
-            res.json({ success: true, data: products, message: "get all products works" });
+            const pageLimit = limit ? Math.min(parseInt(limit), 50) : 10; // Max 50 items per page
+            const result = await productServices_1.ProductServices.getAllProducts(pageLimit, startAfter ? JSON.parse(startAfter) : undefined);
+            res.json({
+                success: true,
+                data: result.products,
+                pagination: {
+                    hasMore: result.hasMore,
+                    nextCursor: result.nextCursor ? 'cursor_available' : null
+                },
+                message: "get all products works"
+            });
         }
     }
     catch (error) {

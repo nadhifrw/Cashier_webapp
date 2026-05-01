@@ -1,4 +1,4 @@
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { QueryDocumentSnapshot, getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { dbCashier } from '../config/firebase';
 import { Transaction, CreateTransactionInput, DailySummary, PaymentMethod } from '../models/transaction';
 
@@ -26,18 +26,41 @@ const toBaseQuantity = (
 };
 
 export const TransactionServices = {
-    // Read all transactions
-    async getAllTransactions(): Promise<Transaction[]> {
+    // Read all transactions with pagination
+    async getAllTransactions(
+        limit: number = 10,
+        startAfter?: QueryDocumentSnapshot
+    ): Promise<{ transactions: Transaction[]; nextCursor?: QueryDocumentSnapshot; hasMore: boolean }> {
         try {
-            const transactionsSnapshot = await dbCashier.collection(COLLECTION_NAME)
-                .orderBy('createdAt', 'desc')
-                .get();
-            const transactions = transactionsSnapshot.docs.map(doc => ({
+            let query = dbCashier.collection(COLLECTION_NAME)
+                .orderBy('createdAt', 'desc');
+            
+            // Add pagination
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+            
+            const transactionsSnapshot = await query.get();
+            const docs: QueryDocumentSnapshot[] = transactionsSnapshot.docs;
+            
+            // Check if there are more results beyond the limit
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            
+            const transactions = actualDocs.map((doc: QueryDocumentSnapshot) => ({
                 id: doc.id,
                 ...doc.data(),
                 createdAt: doc.data().createdAt?.toDate() || new Date(),
             })) as Transaction[];
-            return transactions;
+            
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
+            
+            return {
+                transactions,
+                ...(nextCursor ? { nextCursor } : {}),
+                hasMore
+            };
         } catch (error) {
             console.error('Error fetching transactions:', (error as Error).message);
             throw error;

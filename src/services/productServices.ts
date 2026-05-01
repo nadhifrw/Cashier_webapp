@@ -1,4 +1,4 @@
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, QueryDocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import { dbCashier } from '../config/firebase';
 import { Product, CreateProduct, UpdateProduct, InventoryType, BaseUnit, SalesUnit } from '../models/product';
 
@@ -38,24 +38,57 @@ const normalizeProductData = (id: string, rawData: Record<string, unknown>): Pro
 };
 
 export const ProductServices = {
-    async getAllProducts():Promise<Product[]> {
+    async getAllProducts(limit: number = 10, startAfter?: any): Promise<{ products: Product[]; nextCursor?: any; hasMore: boolean }> {
         try {
-        const productsSnapshot = await dbCashier.collection(COLLECTION_NAME).get();
-        const products = productsSnapshot.docs.map(doc => normalizeProductData(doc.id, doc.data() as Record<string, unknown>));
-        return products;
+            let query: any = dbCashier.collection(COLLECTION_NAME).orderBy('name');
+            
+            // Add pagination
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+            
+            const productsSnapshot = await query.get();
+            const docs = productsSnapshot.docs;
+            
+            // Check if there are more results beyond the limit
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            
+            const products = actualDocs.map((doc: QueryDocumentSnapshot) => normalizeProductData(doc.id, doc.data() as Record<string, unknown>));
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
+            
+            return {
+                products,
+                nextCursor,
+                hasMore
+            };
         } catch (error) {
             console.error('Error fetching products:', (error as Error).message);
             throw error;
         }
     },
 
-    async getLowStockProducts(threshold?: number): Promise<Product[]> {
+    async getLowStockProducts(threshold?: number, limit: number = 10): Promise<Product[]> {
         try {
-            const allProducts = await this.getAllProducts();
+            // Query directly for low stock products to minimize reads
             const hasCustomThreshold = Number.isFinite(threshold) && Number(threshold) >= 0;
             const thresholdValue = hasCustomThreshold ? Number(threshold) : null;
-
-            return allProducts
+            
+            const query = dbCashier.collection(COLLECTION_NAME)
+                .where('quantityOnHand', '<=', thresholdValue || dbCashier.collection(COLLECTION_NAME).doc().get())
+                .limit(limit);
+            
+            // Fallback to fetching with limit and filtering
+            const productsSnapshot = await dbCashier.collection(COLLECTION_NAME)
+                .orderBy('quantityOnHand', 'asc')
+                .limit(limit * 3) // Fetch more to account for filtering
+                .get();
+                
+            let products = productsSnapshot.docs.map(doc => normalizeProductData(doc.id, doc.data() as Record<string, unknown>));
+            
+            // Filter by threshold
+            products = products
                 .filter((product) => {
                     const quantityOnHand = toFiniteNumber(product.quantityOnHand ?? product.stock, 0);
                     const productThreshold = hasCustomThreshold
@@ -63,7 +96,9 @@ export const ProductServices = {
                         : toFiniteNumber(product.lowStockThreshold, product.inventoryType === 'weight' ? 1000 : 10);
                     return quantityOnHand <= productThreshold;
                 })
-                .sort((a, b) => toFiniteNumber(a.quantityOnHand ?? a.stock, 0) - toFiniteNumber(b.quantityOnHand ?? b.stock, 0));
+                .slice(0, limit); // Limit final results
+            
+            return products;
         } catch (error) {
             console.error('Error fetching low stock products:', (error as Error).message);
             throw error;
@@ -174,9 +209,9 @@ export const ProductServices = {
     // search items
     async search(query: string): Promise<Product[]> {
         try {
-            const productsAll = await this.getAllProducts();
+            const { products: productsAll } = await this.getAllProducts();
             const lowerQuery = query.toLowerCase();
-            return productsAll.filter(product =>
+            return productsAll.filter((product) =>
                 product.name.toLowerCase().includes(lowerQuery) ||
                 (product.category && product.category.toLowerCase().includes(lowerQuery))
             )

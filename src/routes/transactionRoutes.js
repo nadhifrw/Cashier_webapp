@@ -113,13 +113,19 @@ router.get('/cashier/:cashierId/transactions', async (req, res) => {
         });
     }
 });
-// Get all transactions (READ ALL) - Admin only
+// Get all transactions (READ ALL) with pagination - Admin only
 router.get('/cart', middleware_1.isAdmin, async (req, res) => {
     try {
-        const transactions = await transactionServices_1.TransactionServices.getAllTransactions();
+        const { limit, startAfter } = req.query;
+        const pageLimit = limit ? Math.min(parseInt(limit), 50) : 10; // Max 50 items per page
+        const result = await transactionServices_1.TransactionServices.getAllTransactions(pageLimit, startAfter ? JSON.parse(startAfter) : undefined);
         res.status(200).json({
             success: true,
-            data: transactions
+            data: result.transactions,
+            pagination: {
+                hasMore: result.hasMore,
+                nextCursor: result.nextCursor ? 'cursor_available' : null
+            }
         });
     }
     catch (error) {

@@ -26,13 +26,17 @@ app.use((req, res, next) => {
     next();
 });
 // Health check
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         message: 'Cashier Web App API',
         version: '1.0.0',
         timestamp: new Date().toISOString()
     });
+});
+// Root route should open the login page
+app.get('/', (req, res) => {
+    res.redirect('/index.html');
 });
 // API Routes
 app.use("/products", productRoutes_1.default);

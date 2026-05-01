@@ -17,18 +17,32 @@ const toBaseQuantity = (quantity, soldUnit, baseUnit) => {
     return quantity;
 };
 exports.TransactionServices = {
-    // Read all transactions
-    async getAllTransactions() {
+    // Read all transactions with pagination
+    async getAllTransactions(limit = 10, startAfter) {
         try {
-            const transactionsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME)
-                .orderBy('createdAt', 'desc')
-                .get();
-            const transactions = transactionsSnapshot.docs.map(doc => ({
+            let query = firebase_1.dbCashier.collection(COLLECTION_NAME)
+                .orderBy('createdAt', 'desc');
+            // Add pagination
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+            const transactionsSnapshot = await query.get();
+            const docs = transactionsSnapshot.docs;
+            // Check if there are more results beyond the limit
+            const hasMore = docs.length > limit;
+            const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+            const transactions = actualDocs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
                 createdAt: doc.data().createdAt?.toDate() || new Date(),
             }));
-            return transactions;
+            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
+            return {
+                transactions,
+                ...(nextCursor ? { nextCursor } : {}),
+                hasMore
+            };
         }
         catch (error) {
             console.error('Error fetching transactions:', error.message);
@@ -59,8 +73,8 @@ exports.TransactionServices = {
             // Calculate totals
             const subtotal = input.items.reduce((sum, item) => sum + item.subtotal, 0);
             const discount = input.discount || 0;
-            const tax = (subtotal - discount) * 0.1; // Assuming 10% tax
-            const total = subtotal - discount + tax;
+            const tax = 0;
+            const total = subtotal - discount;
             const change = input.amountPaid - total;
             const receiptDate = (new Date().toISOString().split('T')[0] || '').replace(/-/g, '');
             const receiptNumber = `TXN-${receiptDate}-${Date.now()}`;
@@ -171,8 +185,8 @@ exports.TransactionServices = {
                 const items = input.items || transactionDoc.data()?.items;
                 const discount = input.discount !== undefined ? input.discount : transactionDoc.data()?.discount;
                 const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-                const tax = (subtotal - discount) * 0.1;
-                const total = subtotal - discount + tax;
+                const tax = 0;
+                const total = subtotal - discount;
                 const amountPaid = input.amountPaid || transactionDoc.data()?.amountPaid;
                 updateData.subtotal = subtotal;
                 updateData.tax = tax;
