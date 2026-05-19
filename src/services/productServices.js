@@ -91,6 +91,18 @@ exports.ProductServices = {
             throw error;
         }
     },
+    async getAllProductsForSearch() {
+        const allProducts = [];
+        let startAfter;
+        let hasMore = true;
+        while (hasMore) {
+            const page = await this.getAllProducts(50, startAfter);
+            allProducts.push(...page.products);
+            hasMore = page.hasMore;
+            startAfter = page.nextCursor;
+        }
+        return allProducts;
+    },
     // adding items
     async createProduct(input) {
         try {
@@ -181,7 +193,7 @@ exports.ProductServices = {
     // search items
     async search(query) {
         try {
-            const { products: productsAll } = await this.getAllProducts();
+            const productsAll = await this.getAllProductsForSearch();
             const lowerQuery = query.toLowerCase();
             return productsAll.filter((product) => product.name.toLowerCase().includes(lowerQuery) ||
                 (product.category && product.category.toLowerCase().includes(lowerQuery)));

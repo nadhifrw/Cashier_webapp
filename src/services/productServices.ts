@@ -105,6 +105,21 @@ export const ProductServices = {
         }
     },
 
+    async getAllProductsForSearch(): Promise<Product[]> {
+        const allProducts: Product[] = [];
+        let startAfter: QueryDocumentSnapshot | undefined;
+        let hasMore = true;
+
+        while (hasMore) {
+            const page = await this.getAllProducts(50, startAfter);
+            allProducts.push(...page.products);
+            hasMore = page.hasMore;
+            startAfter = page.nextCursor;
+        }
+
+        return allProducts;
+    },
+
     // adding items
     async createProduct(input: CreateProduct): Promise<Product> {
         try {
@@ -209,7 +224,7 @@ export const ProductServices = {
     // search items
     async search(query: string): Promise<Product[]> {
         try {
-            const { products: productsAll } = await this.getAllProducts();
+            const productsAll = await this.getAllProductsForSearch();
             const lowerQuery = query.toLowerCase();
             return productsAll.filter((product) =>
                 product.name.toLowerCase().includes(lowerQuery) ||
