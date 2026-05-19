@@ -118,13 +118,14 @@ router.get('/cart', middleware_1.isAdmin, async (req, res) => {
     try {
         const { limit, startAfter } = req.query;
         const pageLimit = limit ? Math.min(parseInt(limit), 50) : 10; // Max 50 items per page
-        const result = await transactionServices_1.TransactionServices.getAllTransactions(pageLimit, startAfter ? JSON.parse(startAfter) : undefined);
+        const startAfterValue = startAfter ? String(startAfter) : undefined;
+        const result = await transactionServices_1.TransactionServices.getAllTransactions(pageLimit, startAfterValue);
         res.status(200).json({
             success: true,
             data: result.transactions,
             pagination: {
                 hasMore: result.hasMore,
-                nextCursor: result.nextCursor ? 'cursor_available' : null
+                nextCursor: result.nextCursor ?? null
             }
         });
     }

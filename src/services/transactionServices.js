@@ -20,28 +20,42 @@ exports.TransactionServices = {
     // Read all transactions with pagination
     async getAllTransactions(limit = 10, startAfter) {
         try {
-            let query = firebase_1.dbCashier.collection(COLLECTION_NAME)
-                .orderBy('createdAt', 'desc');
-            // Add pagination
+            let query = firebase_1.dbCashier.collection(COLLECTION_NAME).orderBy('createdAt', 'desc');
             if (startAfter) {
-                query = query.startAfter(startAfter);
+                // try to parse ISO date cursor, fallback to raw string id
+                const startDate = (() => {
+                    const d = new Date(startAfter);
+                    return isNaN(d.getTime()) ? undefined : d;
+                })();
+                query = startDate ? query.startAfter(startDate) : query.startAfter(startAfter);
             }
-            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
-            const transactionsSnapshot = await query.get();
-            const docs = transactionsSnapshot.docs;
-            // Check if there are more results beyond the limit
+            query = query.limit(limit + 1);
+            const snapshot = await query.get();
+            const docs = snapshot.docs;
             const hasMore = docs.length > limit;
             const actualDocs = hasMore ? docs.slice(0, limit) : docs;
-            const transactions = actualDocs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate() || new Date(),
-            }));
-            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
+            const transactions = actualDocs.map((doc) => {
+                const data = doc.data();
+                const raw = data?.createdAt;
+                const createdAt = raw?.toDate ? raw.toDate() : (raw instanceof Date ? raw : new Date());
+                return {
+                    id: doc.id,
+                    ...data,
+                    createdAt,
+                };
+            });
+            let nextCursor;
+            if (hasMore) {
+                const lastDoc = actualDocs[actualDocs.length - 1];
+                const lastData = lastDoc.data();
+                const raw = lastData?.createdAt;
+                const date = raw?.toDate ? raw.toDate() : (raw instanceof Date ? raw : undefined);
+                nextCursor = date ? date.toISOString() : String(lastDoc.id);
+            }
             return {
                 transactions,
-                ...(nextCursor ? { nextCursor } : {}),
-                hasMore
+                ...(nextCursor !== undefined ? { nextCursor } : {}),
+                hasMore,
             };
         }
         catch (error) {

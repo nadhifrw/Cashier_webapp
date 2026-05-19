@@ -34,26 +34,48 @@ const normalizeProductData = (id, rawData) => {
     };
 };
 exports.ProductServices = {
+    // async getAllProducts(limit: number = 10, startAfter?: string): Promise<{ products: Product[]; nextCursor?: string; hasMore: boolean }> {
+    //     try {
+    //         let query: any = dbCashier.collection(COLLECTION_NAME).orderBy('name');
+    //         // Add pagination
+    //         if (startAfter) {
+    //             query = query.startAfter(startAfter);
+    //         }
+    //         query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+    //         const productsSnapshot = await query.get();
+    //         const docs = productsSnapshot.docs;
+    //         // Check if there are more results beyond the limit
+    //         const hasMore = docs.length > limit;
+    //         const actualDocs = hasMore ? docs.slice(0, limit) : docs;
+    //         const products = actualDocs.map((doc: QueryDocumentSnapshot) => normalizeProductData(doc.id, doc.data() as Record<string, unknown>));
+    //         const nextCursor = hasMore ? String((actualDocs[actualDocs.length - 1].data() as any).name ?? actualDocs[actualDocs.length - 1].id) : undefined;
+    //         return {
+    //             products,
+    //             nextCursor,
+    //             hasMore
+    //         };
+    //     } catch (error) {
+    //         console.error('Error fetching products:', (error as Error).message);
+    //         throw error;
+    //     }
+    // },
     async getAllProducts(limit = 10, startAfter) {
         try {
             let query = firebase_1.dbCashier.collection(COLLECTION_NAME).orderBy('name');
-            // Add pagination
             if (startAfter) {
                 query = query.startAfter(startAfter);
             }
-            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
+            query = query.limit(limit + 1);
             const productsSnapshot = await query.get();
             const docs = productsSnapshot.docs;
-            // Check if there are more results beyond the limit
             const hasMore = docs.length > limit;
             const actualDocs = hasMore ? docs.slice(0, limit) : docs;
             const products = actualDocs.map((doc) => normalizeProductData(doc.id, doc.data()));
-            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
-            return {
-                products,
-                nextCursor,
-                hasMore
-            };
+            const nextCursor = hasMore ? String(actualDocs[actualDocs.length - 1].data().name ?? actualDocs[actualDocs.length - 1].id) : undefined;
+            const result = { products, hasMore };
+            if (nextCursor !== undefined)
+                result.nextCursor = nextCursor;
+            return result;
         }
         catch (error) {
             console.error('Error fetching products:', error.message);
@@ -90,18 +112,6 @@ exports.ProductServices = {
             console.error('Error fetching low stock products:', error.message);
             throw error;
         }
-    },
-    async getAllProductsForSearch() {
-        const allProducts = [];
-        let startAfter;
-        let hasMore = true;
-        while (hasMore) {
-            const page = await this.getAllProducts(50, startAfter);
-            allProducts.push(...page.products);
-            hasMore = page.hasMore;
-            startAfter = page.nextCursor;
-        }
-        return allProducts;
     },
     // adding items
     async createProduct(input) {
@@ -193,7 +203,7 @@ exports.ProductServices = {
     // search items
     async search(query) {
         try {
-            const productsAll = await this.getAllProductsForSearch();
+            const { products: productsAll } = await this.getAllProducts();
             const lowerQuery = query.toLowerCase();
             return productsAll.filter((product) => product.name.toLowerCase().includes(lowerQuery) ||
                 (product.category && product.category.toLowerCase().includes(lowerQuery)));

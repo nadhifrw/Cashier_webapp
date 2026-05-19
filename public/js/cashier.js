@@ -132,21 +132,25 @@ async function loadProducts() {
 
 /**
  * Display products in grid
+ * @param {Array} products - Products to display
+ * @param {boolean} replace - If true, replace grid contents; if false, append
  */
-function displayProducts(products) {
+function displayProducts(products, replace = true) {
   const grid = document.getElementById('productsGrid');
 
   if (!products || products.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-products">
-        <div class="empty-products-icon">📦</div>
-        <p>No products found</p>
-      </div>
-    `;
+    if (replace) {
+      grid.innerHTML = `
+        <div class="empty-products">
+          <div class="empty-products-icon">📦</div>
+          <p>No products found</p>
+        </div>
+      `;
+    }
     return;
   }
 
-  grid.innerHTML = products.map(product => {
+  const productHtml = products.map(product => {
     const inventory = getProductInventoryMeta(product);
     const availableForSale = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
     const isOutOfStock = inventory.quantityOnHand <= 0;
@@ -167,37 +171,15 @@ function displayProducts(products) {
   `;
   }).join('');
 
-  // pagination: render Load more button if available
-  // remove existing button
-  const existingLoadBtn = document.getElementById('loadMoreBtn');
-  if (existingLoadBtn) existingLoadBtn.remove();
-
-  if (Products.pagination && Products.pagination.hasMore) {
-    const loadBtn = document.createElement('button');
-    loadBtn.id = 'loadMoreBtn';
-    loadBtn.type = 'button';
-    loadBtn.className = 'load-more-btn';
-    loadBtn.textContent = 'Load more products';
-    loadBtn.style.margin = '16px 0';
-    loadBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      if (!Products.pagination.nextCursor) return;
-      try {
-        loadBtn.disabled = true;
-        loadBtn.textContent = 'Loading...';
-        await Products.fetchAll(10, Products.pagination.nextCursor, true);
-        displayProducts(Products.getAll());
-      } catch (err) {
-        console.error('Error loading more products', err);
-      } finally {
-        loadBtn.disabled = false;
-        loadBtn.textContent = 'Load more products';
-      }
-    });
-
-    // append after grid
-    grid.parentElement.appendChild(loadBtn);
+  // Replace or append grid contents
+  if (replace) {
+    grid.innerHTML = productHtml;
+  } else {
+    grid.innerHTML += productHtml;
   }
+
+  // Set up infinite scroll sentinel
+  setupInfiniteScrollSentinel();
 
   // Attach click handlers
   grid.querySelectorAll('.product-btn').forEach(btn => {
@@ -236,13 +218,71 @@ function displayProducts(products) {
 }
 
 /**
+ * Setup infinite scroll sentinel
+ */
+let infiniteScrollObserver = null;
+function setupInfiniteScrollSentinel() {
+  // Remove old sentinel if exists
+  const oldSentinel = document.getElementById('scrollSentinel');
+  if (oldSentinel) oldSentinel.remove();
+
+  // Only set up if there are more products
+  if (!Products.pagination || !Products.pagination.hasMore) return;
+
+  const grid = document.getElementById('productsGrid');
+  const sentinel = document.createElement('div');
+  sentinel.id = 'scrollSentinel';
+  sentinel.style.height = '100px';
+  grid.parentElement.appendChild(sentinel);
+
+  // Clean up old observer
+  if (infiniteScrollObserver) infiniteScrollObserver.disconnect();
+
+  // Create Intersection Observer
+  infiniteScrollObserver = new IntersectionObserver(
+    async (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && Products.pagination.hasMore && !isLoading) {
+          try {
+            isLoading = true;
+            const previousCount = Products.getAll().length;
+            await Products.fetchAll(10, Products.pagination.nextCursor, true);
+            const allProducts = Products.getAll();
+            const newProducts = allProducts.slice(previousCount);
+            displayProducts(newProducts, false);
+          } catch (err) {
+            console.error('Error loading more products', err);
+          } finally {
+            isLoading = false;
+          }
+        }
+      }
+    },
+    { rootMargin: '200px' }
+  );
+
+  infiniteScrollObserver.observe(sentinel);
+}
+
+/**
  * Setup event listeners
  */
 function setupEventListeners() {
   // Search
-  document.getElementById('searchInput').addEventListener('input', (e) => {
+  document.getElementById('searchInput').addEventListener('input', async (e) => {
     const query = e.target.value;
-    displayProducts(filterProducts(query));
+    // Auto-load products if empty and no search query
+    if (Products.getAll().length === 0 && !query) {
+      try {
+        isLoading = true;
+        await Products.fetchAll();
+      } catch (err) {
+        console.error('Error loading products', err);
+      } finally {
+        isLoading = false;
+      }
+    }
+    displayProducts(filterProducts(query), true);
   });
 
   // Logout

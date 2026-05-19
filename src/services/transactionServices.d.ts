@@ -1,9 +1,8 @@
-import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { Transaction, CreateTransactionInput, DailySummary, PaymentMethod } from '../models/transaction';
 export declare const TransactionServices: {
-    getAllTransactions(limit?: number, startAfter?: QueryDocumentSnapshot): Promise<{
+    getAllTransactions(limit?: number, startAfter?: string): Promise<{
         transactions: Transaction[];
-        nextCursor?: QueryDocumentSnapshot;
+        nextCursor?: string;
         hasMore: boolean;
     }>;
     getTransactionById(id: string): Promise<Transaction | null>;
