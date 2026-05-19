@@ -167,6 +167,38 @@ function displayProducts(products) {
   `;
   }).join('');
 
+  // pagination: render Load more button if available
+  // remove existing button
+  const existingLoadBtn = document.getElementById('loadMoreBtn');
+  if (existingLoadBtn) existingLoadBtn.remove();
+
+  if (Products.pagination && Products.pagination.hasMore) {
+    const loadBtn = document.createElement('button');
+    loadBtn.id = 'loadMoreBtn';
+    loadBtn.type = 'button';
+    loadBtn.className = 'load-more-btn';
+    loadBtn.textContent = 'Load more products';
+    loadBtn.style.margin = '16px 0';
+    loadBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!Products.pagination.nextCursor) return;
+      try {
+        loadBtn.disabled = true;
+        loadBtn.textContent = 'Loading...';
+        await Products.fetchAll(10, Products.pagination.nextCursor, true);
+        displayProducts(Products.getAll());
+      } catch (err) {
+        console.error('Error loading more products', err);
+      } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load more products';
+      }
+    });
+
+    // append after grid
+    grid.parentElement.appendChild(loadBtn);
+  }
+
   // Attach click handlers
   grid.querySelectorAll('.product-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {

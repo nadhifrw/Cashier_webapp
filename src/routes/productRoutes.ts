@@ -40,13 +40,14 @@ router.get('/', isAuthenticated, allowRead, async (req: Request, res: Response) 
             return res.json({ success: true, data: products, message: "seach works" });
         } else {
             const pageLimit = limit ? Math.min(parseInt(limit as string), 50) : 10; // Max 50 items per page
-            const result = await ProductServices.getAllProducts(pageLimit, startAfter ? JSON.parse(startAfter as string) : undefined);
+            const startAfterValue = startAfter ? String(startAfter) : undefined;
+            const result = await ProductServices.getAllProducts(pageLimit, startAfterValue);
             res.json({ 
                 success: true, 
                 data: result.products,
                 pagination: {
                     hasMore: result.hasMore,
-                    nextCursor: result.nextCursor ? 'cursor_available' : null
+                    nextCursor: result.nextCursor ?? null
                 },
                 message: "get all products works" 
             });

@@ -1,6 +1,7 @@
 import { QueryDocumentSnapshot, getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { dbCashier } from '../config/firebase';
 import { Transaction, CreateTransactionInput, DailySummary, PaymentMethod } from '../models/transaction';
+import { Product } from './inventoryServices';
 
 const COLLECTION_NAME = 'transactions';
 
@@ -27,39 +28,50 @@ const toBaseQuantity = (
 
 export const TransactionServices = {
     // Read all transactions with pagination
-    async getAllTransactions(
-        limit: number = 10,
-        startAfter?: QueryDocumentSnapshot
-    ): Promise<{ transactions: Transaction[]; nextCursor?: QueryDocumentSnapshot; hasMore: boolean }> {
+    async getAllTransactions(limit: number = 10, startAfter?: string): Promise<{ transactions: Transaction[]; nextCursor?: string; hasMore: boolean }> {
         try {
-            let query = dbCashier.collection(COLLECTION_NAME)
-                .orderBy('createdAt', 'desc');
-            
-            // Add pagination
+            let query: any = dbCashier.collection(COLLECTION_NAME).orderBy('createdAt', 'desc');
+
             if (startAfter) {
-                query = query.startAfter(startAfter);
+                // try to parse ISO date cursor, fallback to raw string id
+                const startDate = (() => {
+                    const d = new Date(startAfter);
+                    return isNaN(d.getTime()) ? undefined : d;
+                })();
+                query = startDate ? query.startAfter(startDate) : query.startAfter(startAfter);
             }
-            query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
-            
-            const transactionsSnapshot = await query.get();
-            const docs: QueryDocumentSnapshot[] = transactionsSnapshot.docs;
-            
-            // Check if there are more results beyond the limit
+            query = query.limit(limit + 1);
+
+            const snapshot = await query.get();
+            const docs = snapshot.docs;
+
             const hasMore = docs.length > limit;
             const actualDocs = hasMore ? docs.slice(0, limit) : docs;
-            
-            const transactions = actualDocs.map((doc: QueryDocumentSnapshot) => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate() || new Date(),
-            })) as Transaction[];
-            
-            const nextCursor = hasMore ? actualDocs[actualDocs.length - 1] : undefined;
-            
+
+            const transactions: Transaction[] = actualDocs.map((doc: QueryDocumentSnapshot) => {
+                const data = doc.data() as any;
+                const raw = data?.createdAt;
+                const createdAt = raw?.toDate ? raw.toDate() : (raw instanceof Date ? raw : new Date());
+                return {
+                    id: doc.id,
+                    ...data,
+                    createdAt,
+                } as Transaction;
+            });
+
+            let nextCursor: string | undefined;
+            if (hasMore) {
+                const lastDoc = actualDocs[actualDocs.length - 1];
+                const lastData = lastDoc.data() as any;
+                const raw = lastData?.createdAt;
+                const date = raw?.toDate ? raw.toDate() : (raw instanceof Date ? raw : undefined);
+                nextCursor = date ? date.toISOString() : String(lastDoc.id);
+            }
+
             return {
                 transactions,
-                ...(nextCursor ? { nextCursor } : {}),
-                hasMore
+                ...(nextCursor !== undefined ? { nextCursor } : {}),
+                hasMore,
             };
         } catch (error) {
             console.error('Error fetching transactions:', (error as Error).message);

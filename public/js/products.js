@@ -6,6 +6,10 @@
 const Products = {
   products: [],
   filteredProducts: [],
+  pagination: {
+    hasMore: false,
+    nextCursor: null,
+  },
 
   normalizeProduct(product) {
     const inventoryType = product.inventoryType === 'weight' ? 'weight' : 'unit';
@@ -29,24 +33,42 @@ const Products = {
   },
 
   /**
-   * Fetch all products from API
+   * Fetch all products from API (supports pagination)
+   * @param {number} limit
+   * @param {string|null} startAfter
+   * @param {boolean} append
    */
-  async fetchAll() {
+  async fetchAll(limit = 10, startAfter = null, append = false) {
     try {
-      const response = await API.getProducts();
-      
+      const response = await API.getProducts(null, limit, startAfter);
+
       if (response.success && response.data) {
-        this.products = response.data.map((product) => this.normalizeProduct(product));
+        const fetched = response.data.map((product) => this.normalizeProduct(product));
+        if (append) {
+          // avoid duplicates
+          const existingIds = new Set(this.products.map(p => p.id));
+          for (const p of fetched) {
+            if (!existingIds.has(p.id)) this.products.push(p);
+          }
+        } else {
+          this.products = fetched;
+        }
+
+        // update filtered list and pagination
         this.filteredProducts = [...this.products];
-        return this.products;
+        this.pagination.hasMore = response.pagination?.hasMore ?? false;
+        this.pagination.nextCursor = response.pagination?.nextCursor ?? null;
+
+        return fetched;
       }
-      
+
       throw new Error(response.error || 'Failed to fetch products');
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;
     }
   },
+
 
   /**
    * Search products by name or query

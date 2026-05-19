@@ -198,8 +198,13 @@ const API = {
   },
 
   // ====== PRODUCT ENDPOINTS ======
-  async getProducts(search = null) {
-    const endpoint = search ? `/products?search=${encodeURIComponent(search)}` : '/products';
+  async getProducts(search = null, limit = null, startAfter = null) {
+    let endpoint = '/products';
+    const params = [];
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (limit) params.push(`limit=${encodeURIComponent(limit)}`);
+    if (startAfter) params.push(`startAfter=${encodeURIComponent(startAfter)}`);
+    if (params.length) endpoint += `?${params.join('&')}`;
     return this.get(endpoint);
   },
 
