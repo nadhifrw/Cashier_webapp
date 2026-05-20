@@ -194,18 +194,39 @@ async function loadDashboard() {
  */
 async function loadProducts() {
   try {
-    const response = await API.getProducts();
-    if (response && response.success && response.data) {
-      products = response.data;
-      displayProducts();
-    } else if (response && response.data) {
-      // Handle case where success flag isn't set but data exists
-      products = response.data;
-      displayProducts();
-    } else {
-      console.warn('No product data received');
-      displayProducts([]);
+    products = [];
+    let allFetched = false;
+    let nextCursor = null;
+    const limit = 50; // Fetch 50 items per request for faster loading
+
+    // Fetch all products using cursor-based pagination
+    while (!allFetched) {
+      const response = await API.getProducts(null, limit, nextCursor);
+      
+      if (response && response.success && response.data && response.data.length > 0) {
+        products = products.concat(response.data);
+        
+        // Check if there are more products
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else if (response && response.data && response.data.length > 0) {
+        // Handle case where success flag isn't set but data exists
+        products = products.concat(response.data);
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else {
+        allFetched = true;
+      }
     }
+    
+    displayProducts();
   } catch (error) {
     console.error('Error loading products:', error.message);
     showNotification(`Error loading products: ${error.message}`, 'error');
@@ -215,13 +236,34 @@ async function loadProducts() {
 
 async function loadLowStockProducts() {
   try {
-    const response = await API.getLowStockProducts();
-    if (response && response.success && response.data) {
-      lowStockItems = response.data;
-    } else if (response && response.data) {
-      lowStockItems = response.data;
-    } else {
-      lowStockItems = [];
+    lowStockItems = [];
+    let allFetched = false;
+    let nextCursor = null;
+    const limit = 50;
+
+    // Fetch all low stock items using cursor-based pagination
+    while (!allFetched) {
+      const response = await API.getLowStockProducts(null, limit, nextCursor);
+      
+      if (response && response.success && response.data && response.data.length > 0) {
+        lowStockItems = lowStockItems.concat(response.data);
+        
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else if (response && response.data && response.data.length > 0) {
+        lowStockItems = lowStockItems.concat(response.data);
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else {
+        allFetched = true;
+      }
     }
   } catch (error) {
     console.warn('Error loading low stock products:', error.message);
@@ -571,22 +613,42 @@ async function handleUserSubmit(e) {
  */
 async function loadTransactions() {
   try {
-    const response = await API.getTransactions();
-    if (response && response.success && response.data) {
-      transactions = [...response.data].sort((a, b) =>
-        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      );
-      displayTransactions();
-    } else if (response && response.data) {
-      // Handle case where success flag isn't set but data exists
-      transactions = [...response.data].sort((a, b) =>
-        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      );
-      displayTransactions();
-    } else {
-      console.warn('No transaction data received');
-      displayTransactions([]);
+    transactions = [];
+    let allFetched = false;
+    let nextCursor = null;
+    const limit = 50;
+
+    // Fetch all transactions using cursor-based pagination
+    while (!allFetched) {
+      const response = await API.getTransactions(limit, nextCursor);
+      
+      if (response && response.success && response.data && response.data.length > 0) {
+        transactions = transactions.concat(response.data);
+        
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else if (response && response.data && response.data.length > 0) {
+        transactions = transactions.concat(response.data);
+        const hasMore = response.pagination?.hasMore ?? false;
+        nextCursor = response.pagination?.nextCursor ?? null;
+        if (!hasMore || !nextCursor) {
+          allFetched = true;
+        }
+      } else {
+        allFetched = true;
+      }
     }
+
+    // Sort by creation date
+    transactions.sort((a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+    
+    displayTransactions();
   } catch (error) {
     console.warn('Error loading transactions:', error.message);
     displayTransactions([]);
@@ -707,8 +769,25 @@ async function loadReportData() {
       report = response.data;
       displayMonthlyReport(report, resultsDiv);
     } else if (reportType === 'inventory-status') {
-      const response = await API.getProducts();
-      const inventoryProducts = response?.data || [];
+      let inventoryProducts = [];
+      let allFetched = false;
+      let nextCursor = null;
+      const limit = 50;
+
+      // Fetch all products for inventory report using pagination
+      while (!allFetched) {
+        const response = await API.getProducts(null, limit, nextCursor);
+        if (response?.data && response.data.length > 0) {
+          inventoryProducts = inventoryProducts.concat(response.data);
+          const hasMore = response.pagination?.hasMore ?? false;
+          nextCursor = response.pagination?.nextCursor ?? null;
+          if (!hasMore || !nextCursor) {
+            allFetched = true;
+          }
+        } else {
+          allFetched = true;
+        }
+      }
       displayInventoryStatusReport(inventoryProducts, resultsDiv);
     } else if (reportType === 'cashier-performance') {
       const startDate = document.getElementById('startDate').value || getDefaultStartDate();

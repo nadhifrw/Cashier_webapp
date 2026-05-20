@@ -208,11 +208,16 @@ const API = {
     return this.get(endpoint);
   },
 
-  async getLowStockProducts(threshold = null) {
-    if (threshold === null || threshold === undefined || threshold === '') {
-      return this.get('/products/low-stock');
+  async getLowStockProducts(threshold = null, limit = null, startAfter = null) {
+    let endpoint = '/products/low-stock';
+    const params = [];
+    if (threshold !== null && threshold !== undefined && threshold !== '') {
+      params.push(`threshold=${encodeURIComponent(threshold)}`);
     }
-    return this.get(`/products/low-stock?threshold=${encodeURIComponent(threshold)}`);
+    if (limit) params.push(`limit=${encodeURIComponent(limit)}`);
+    if (startAfter) params.push(`startAfter=${encodeURIComponent(startAfter)}`);
+    if (params.length) endpoint += `?${params.join('&')}`;
+    return this.get(endpoint);
   },
 
   async createProduct(productData) {
@@ -232,8 +237,13 @@ const API = {
     return this.post('/cart/cart', transactionData);
   },
 
-  async getTransactions() {
-    return this.get('/cart/cart');
+  async getTransactions(limit = null, startAfter = null) {
+    let endpoint = '/cart/cart';
+    const params = [];
+    if (limit) params.push(`limit=${encodeURIComponent(limit)}`);
+    if (startAfter) params.push(`startAfter=${encodeURIComponent(startAfter)}`);
+    if (params.length) endpoint += `?${params.join('&')}`;
+    return this.get(endpoint);
   },
 
   async getTransaction(transactionId) {
