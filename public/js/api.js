@@ -41,6 +41,7 @@ const API = {
     if (refreshToken) {
       localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
     }
+    Cache.delete('GET:');
   },
 
   /**
@@ -50,6 +51,7 @@ const API = {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
+    Cache.delete('GET:');
   },
 
   /**
@@ -112,11 +114,31 @@ const API = {
   },
 
   /**
+   * Invalidate cached GET responses by endpoint prefix
+   */
+  invalidateCache(prefix = '') {
+    if (!prefix) {
+      Cache.delete('');
+      return;
+    }
+
+    const normalizedPrefix = prefix.startsWith('GET:') ? prefix : `GET:${prefix}`;
+    Cache.delete(normalizedPrefix);
+  },
+
+  /**
    * Generic fetch wrapper
    */
   async request(method, endpoint, data = null, includeAuth = true, retryOn401 = true) {
     try {
       const options = { method, headers: this.getHeaders(includeAuth) };
+      const cacheKey = `${method}:${endpoint}`;
+      if (method === 'GET') {
+        const cachedResponse = Cache.get(cacheKey);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+      }
       if (data) options.body = JSON.stringify(data);
 
       const response = await fetch(`${this.BASE_URL}${endpoint}`, options);
@@ -133,36 +155,16 @@ const API = {
 
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || `HTTP ${response.status}`);
+
+      if (method === 'GET') {
+        Cache.set(cacheKey, json, 30000); // Cache for 30 seconds
+      }
       return json;
     } catch (error) {
       console.error(`API Error [${method} ${endpoint}]:`, error);
       throw error;
     }
   },
-  // async request(method, endpoint, data = null, includeAuth = true) {
-  //   try {
-  //     const options = {
-  //       method,
-  //       headers: this.getHeaders(includeAuth),
-  //     };
-
-  //     if (data) {
-  //       options.body = JSON.stringify(data);
-  //     }
-
-  //     const response = await fetch(`${this.BASE_URL}${endpoint}`, options);
-  //     const json = await response.json();
-
-  //     if (!response.ok) {
-  //       throw new Error(json.error || `HTTP ${response.status}`);
-  //     }
-
-  //     return json;
-  //   } catch (error) {
-  //     console.error(`API Error [${method} ${endpoint}]:`, error);
-  //     throw error;
-  //   }
-  // },
 
   /**
    * GET request
@@ -270,4 +272,31 @@ const API = {
   async getRevenueTrend(days = 30) {
     return this.get(`/reports/revenue-trend?days=${days}`);
   },
+};
+
+const Cache = {
+  store: new Map(),
+
+  get(key) {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return null;
+    }
+    return entry.value;
+  },
+
+  set(key, value, ttlMs = 30000) {
+    this.store.set(key, {
+      value,
+      expiresAt: Date.now() + ttlMs,
+    });
+  },
+
+  delete(prefix) {
+    for (const key of this.store.keys()) {
+      if (key.startsWith(prefix)) this.store.delete(key);
+    }
+  }
 };

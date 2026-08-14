@@ -45,6 +45,7 @@ router.get('/', isAuthenticated, allowRead, async (req: Request, res: Response) 
             res.json({ 
                 success: true, 
                 data: result.products,
+                totalProducts: result.totalProducts,
                 pagination: {
                     hasMore: result.hasMore,
                     nextCursor: result.nextCursor ?? null
@@ -53,6 +54,22 @@ router.get('/', isAuthenticated, allowRead, async (req: Request, res: Response) 
             });
         }
     } catch (error) {
+    // get item by id
+    router.get('/:id', isAuthenticated, allowRead, async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const product = await ProductServices.getById(id as string);
+            if (!product) {
+                return res.status(404).json({ success: false, error: 'Product not found' });
+            }
+            res.json({ success: true, data: product });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: (error as Error).message,
+            });
+        }
+    })
         res.status(500).json({
         success: false,
         error: (error as Error).message,
@@ -73,7 +90,7 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
             baseUnit,
             salesUnit,
             lowStockThreshold,
-            saleStep,
+            // saleStep,
             category,
         } = req.body;
 
@@ -91,7 +108,7 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
             baseUnit,
             salesUnit,
             lowStockThreshold,
-            saleStep,
+            // saleStep,
             category,
         });
         res.json({ success: true, message: 'Product created successfully', data: newProduct });
@@ -102,6 +119,24 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
         });
     }
 })
+
+// // get item by id
+router.get('/:id', isAuthenticated, allowRead, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const product = await ProductServices.getById(id as string);
+        if (!product) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+        res.json({ success: true, data: product });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: (error as Error).message,
+        });
+    }
+})
+
 
 // update items
 router.put('/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {

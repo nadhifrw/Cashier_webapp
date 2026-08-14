@@ -1,3 +1,5 @@
+// SHOULD BE FINE NOTHING NEED TO BE CHANGED HERE
+
 /**
  * Products Module
  * Handles product fetching, searching, and display
@@ -18,7 +20,12 @@ const Products = {
       ? product.salesUnit
       : (inventoryType === 'weight' ? 'kg' : 'pcs');
     const quantityOnHand = Number(product.quantityOnHand ?? product.stock ?? 0);
-    const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1;
+    const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1;
+    const rawSaleStep = Number(product.saleStep);
+    const isLegacyGramStep = inventoryType === 'weight' && salesUnit === 'g' && rawSaleStep >= 10;
+    const normalizedSaleStep = Number.isFinite(rawSaleStep) && rawSaleStep > 0 && !isLegacyGramStep
+      ? rawSaleStep
+      : defaultSaleStep;
 
     return {
       ...product,
@@ -27,7 +34,7 @@ const Products = {
       inventoryType,
       baseUnit,
       salesUnit,
-      saleStep: Number(product.saleStep ?? defaultSaleStep),
+      saleStep: normalizedSaleStep,
       lowStockThreshold: Number(product.lowStockThreshold ?? (inventoryType === 'weight' ? 1000 : 10)),
     };
   },

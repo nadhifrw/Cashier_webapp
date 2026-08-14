@@ -55,11 +55,6 @@ export const authService = {
       throw new Error('Account is deactivated');
     }
     
-    // Update last login
-    await db.collection(COLLECTION_NAME).doc(decodedToken.uid).update({
-      lastLoginAt: Timestamp.now()
-    });
-    
     return {
       id: userDoc.id,
       ...userData,
@@ -193,6 +188,10 @@ export const authService = {
       // Get user profile
       const user = await this.getUserById(data.localId);
       if (!user) throw new Error('User profile not found');
+
+      await db.collection(COLLECTION_NAME).doc(data.localId).update({
+        lastLoginAt: Timestamp.now()
+      });
 
       return {
         idToken: data.idToken,

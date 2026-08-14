@@ -3,22 +3,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductServices = void 0;
 const firebase_1 = require("../config/firebase");
 const COLLECTION_NAME = 'products';
-// const productServices = collection(dbCashier, COLLECTION_NAME);
+// validate to make sure the value is a finite number
 const toFiniteNumber = (value, fallback) => {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
 };
+// normalize product data to ensure all required fields are correct and present
 const normalizeProductData = (id, rawData) => {
     const inventoryType = rawData.inventoryType === 'weight' ? 'weight' : 'unit';
-    const baseUnit = rawData.baseUnit === 'g' ? 'g' : (inventoryType === 'weight' ? 'g' : 'pcs');
+    const baseUnit = rawData.baseUnit === 'g' || rawData.baseUnit === 'kg' ? rawData.baseUnit : (inventoryType === 'weight' ? 'g' : 'pcs');
     const salesUnit = rawData.salesUnit === 'g' || rawData.salesUnit === 'kg'
         ? rawData.salesUnit
         : (inventoryType === 'weight' ? 'kg' : 'pcs');
     const quantityOnHand = toFiniteNumber(rawData.quantityOnHand ?? rawData.stock, 0);
     const defaultThreshold = inventoryType === 'weight' ? 1000 : 10;
     const lowStockThreshold = toFiniteNumber(rawData.lowStockThreshold, defaultThreshold);
-    const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1;
-    const saleStep = toFiniteNumber(rawData.saleStep, defaultSaleStep);
+    // const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1;
+    // const saleStep = toFiniteNumber(rawData.saleStep, defaultSaleStep);
     return {
         id,
         ...rawData,
@@ -30,35 +31,11 @@ const normalizeProductData = (id, rawData) => {
         baseUnit,
         salesUnit,
         lowStockThreshold,
-        saleStep,
+        // saleStep,
     };
 };
 exports.ProductServices = {
-    // async getAllProducts(limit: number = 10, startAfter?: string): Promise<{ products: Product[]; nextCursor?: string; hasMore: boolean }> {
-    //     try {
-    //         let query: any = dbCashier.collection(COLLECTION_NAME).orderBy('name');
-    //         // Add pagination
-    //         if (startAfter) {
-    //             query = query.startAfter(startAfter);
-    //         }
-    //         query = query.limit(limit + 1); // Fetch one extra to determine if there are more results
-    //         const productsSnapshot = await query.get();
-    //         const docs = productsSnapshot.docs;
-    //         // Check if there are more results beyond the limit
-    //         const hasMore = docs.length > limit;
-    //         const actualDocs = hasMore ? docs.slice(0, limit) : docs;
-    //         const products = actualDocs.map((doc: QueryDocumentSnapshot) => normalizeProductData(doc.id, doc.data() as Record<string, unknown>));
-    //         const nextCursor = hasMore ? String((actualDocs[actualDocs.length - 1].data() as any).name ?? actualDocs[actualDocs.length - 1].id) : undefined;
-    //         return {
-    //             products,
-    //             nextCursor,
-    //             hasMore
-    //         };
-    //     } catch (error) {
-    //         console.error('Error fetching products:', (error as Error).message);
-    //         throw error;
-    //     }
-    // },
+    // getting all of the products with pagination
     async getAllProducts(limit = 10, startAfter) {
         try {
             let query = firebase_1.dbCashier.collection(COLLECTION_NAME).orderBy('name');
@@ -68,11 +45,13 @@ exports.ProductServices = {
             query = query.limit(limit + 1);
             const productsSnapshot = await query.get();
             const docs = productsSnapshot.docs;
+            const totalProductsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME).count().get();
+            const totalProducts = totalProductsSnapshot.data().count;
             const hasMore = docs.length > limit;
             const actualDocs = hasMore ? docs.slice(0, limit) : docs;
             const products = actualDocs.map((doc) => normalizeProductData(doc.id, doc.data()));
             const nextCursor = hasMore ? String(actualDocs[actualDocs.length - 1].data().name ?? actualDocs[actualDocs.length - 1].id) : undefined;
-            const result = { products, hasMore };
+            const result = { products, hasMore, totalProducts };
             if (nextCursor !== undefined)
                 result.nextCursor = nextCursor;
             return result;
@@ -87,9 +66,6 @@ exports.ProductServices = {
             // Query directly for low stock products to minimize reads
             const hasCustomThreshold = Number.isFinite(threshold) && Number(threshold) >= 0;
             const thresholdValue = hasCustomThreshold ? Number(threshold) : null;
-            const query = firebase_1.dbCashier.collection(COLLECTION_NAME)
-                .where('quantityOnHand', '<=', thresholdValue || firebase_1.dbCashier.collection(COLLECTION_NAME).doc().get())
-                .limit(limit);
             // Fallback to fetching with limit and filtering
             const productsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME)
                 .orderBy('quantityOnHand', 'asc')
@@ -117,13 +93,16 @@ exports.ProductServices = {
     async createProduct(input) {
         try {
             const inventoryType = input.inventoryType === 'weight' ? 'weight' : 'unit';
-            const baseUnit = input.baseUnit === 'g' ? 'g' : (inventoryType === 'weight' ? 'g' : 'pcs');
+            const baseUnit = input.baseUnit === 'g' || input.baseUnit === 'kg' ? input.baseUnit : (inventoryType === 'weight' ? 'g' : 'pcs');
             const salesUnit = input.salesUnit === 'g' || input.salesUnit === 'kg'
                 ? input.salesUnit
                 : (inventoryType === 'weight' ? 'kg' : 'pcs');
             const quantityOnHand = toFiniteNumber(input.quantityOnHand ?? input.stock, 0);
             const lowStockThreshold = toFiniteNumber(input.lowStockThreshold, inventoryType === 'weight' ? 1000 : 10);
-            const saleStep = toFiniteNumber(input.saleStep, inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1);
+            // const saleStep = toFiniteNumber(
+            //     input.saleStep,
+            //     inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1
+            // );
             const newProduct = {
                 id: input.id,
                 name: input.name,
@@ -134,7 +113,7 @@ exports.ProductServices = {
                 baseUnit,
                 salesUnit,
                 lowStockThreshold,
-                saleStep,
+                // saleStep,
                 ...(input.category ? { category: input.category } : {}),
                 createdAt: new Date()
             };
@@ -227,19 +206,4 @@ exports.ProductServices = {
         }
     },
 };
-// app.get('/products', async (req: Request, res: Response) => {
-//     try {
-//         const productsSnapshot = await getDocs(productServices);
-//         const products = productsSnapshot.docs.map(doc => ({
-//             id: doc.id,
-//             ...doc.data()
-//         }))
-//         res.json({ success: true, data: products });
-//     } catch (error) {
-//         res.status(500).json({
-//         success: false,
-//         error: (error as Error).message,
-//         });
-//     }
-// })
 //# sourceMappingURL=productServices.js.map

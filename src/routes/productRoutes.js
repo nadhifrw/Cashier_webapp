@@ -45,6 +45,7 @@ router.get('/', middleware_1.isAuthenticated, allowRead, async (req, res) => {
             res.json({
                 success: true,
                 data: result.products,
+                totalProducts: result.totalProducts,
                 pagination: {
                     hasMore: result.hasMore,
                     nextCursor: result.nextCursor ?? null
@@ -54,6 +55,23 @@ router.get('/', middleware_1.isAuthenticated, allowRead, async (req, res) => {
         }
     }
     catch (error) {
+        // get item by id
+        router.get('/:id', middleware_1.isAuthenticated, allowRead, async (req, res) => {
+            try {
+                const { id } = req.params;
+                const product = await productServices_1.ProductServices.getById(id);
+                if (!product) {
+                    return res.status(404).json({ success: false, error: 'Product not found' });
+                }
+                res.json({ success: true, data: product });
+            }
+            catch (error) {
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                });
+            }
+        });
         res.status(500).json({
             success: false,
             error: error.message,
@@ -63,7 +81,9 @@ router.get('/', middleware_1.isAuthenticated, allowRead, async (req, res) => {
 // create new items
 router.post('/', middleware_1.isAuthenticated, middleware_1.isAdmin, async (req, res) => {
     try {
-        const { id, name, price, stock, quantityOnHand, inventoryType, baseUnit, salesUnit, lowStockThreshold, saleStep, category, } = req.body;
+        const { id, name, price, stock, quantityOnHand, inventoryType, baseUnit, salesUnit, lowStockThreshold, 
+        // saleStep,
+        category, } = req.body;
         const resolvedQuantityOnHand = quantityOnHand ?? stock;
         if (!id || !name || price == undefined || resolvedQuantityOnHand == undefined || price < 0 || resolvedQuantityOnHand < 0) {
             return res.status(400).json({ success: false, error: 'Missing required fields: id, name, price, quantityOnHand' });
@@ -78,10 +98,27 @@ router.post('/', middleware_1.isAuthenticated, middleware_1.isAdmin, async (req,
             baseUnit,
             salesUnit,
             lowStockThreshold,
-            saleStep,
+            // saleStep,
             category,
         });
         res.json({ success: true, message: 'Product created successfully', data: newProduct });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+});
+// // get item by id
+router.get('/:id', middleware_1.isAuthenticated, allowRead, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await productServices_1.ProductServices.getById(id);
+        if (!product) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+        res.json({ success: true, data: product });
     }
     catch (error) {
         res.status(500).json({

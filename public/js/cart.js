@@ -35,8 +35,10 @@ const Cart = {
    */
   addItem(product, amount = null) {
     const existingItem = this.items.find(item => item.id === product.id);
-    const step = Number(product.saleStep || (product.inventoryType === 'weight' ? 0.1 : 1));
-    const increment = amount === null ? step : Number(amount);
+    const defaultWeightStep = (product.soldUnit === 'kg' || product.salesUnit === 'kg') ? 0.1 : 0.01;
+    const step = Number(product.saleStep || (product.inventoryType === 'weight' ? defaultWeightStep : 1));
+    // const increment = amount === null ? step : Number(amount);
+    const increment = amount === null ? 1 : Number(amount);
 
     if (existingItem) {
       existingItem.quantity = Number(existingItem.quantity || 0) + increment;

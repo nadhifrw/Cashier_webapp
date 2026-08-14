@@ -5,6 +5,22 @@
 
 let isLoading = false;
 
+// Parse locale decimal numbers (e.g., "1,23" to 1.23)
+function parseLocaleDecimal(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : NaN;
+  }
+
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(',', '.');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+// Get the metadata for each product (inventory type, )
 function getProductInventoryMeta(product) {
   const inventoryType = product.inventoryType === 'weight' ? 'weight' : 'unit';
   const baseUnit = product.baseUnit === 'g' ? 'g' : (inventoryType === 'weight' ? 'g' : 'pcs');
@@ -12,11 +28,15 @@ function getProductInventoryMeta(product) {
     ? product.salesUnit
     : (inventoryType === 'weight' ? 'kg' : 'pcs');
   const quantityOnHand = Number(product.quantityOnHand ?? product.stock ?? 0);
-  const saleStep = Number(product.saleStep ?? (inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 100) : 1));
+  const rawSaleStep = Number(product.saleStep); //i think its like how many units being sold at once (the number u add on the cart)
+  const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1; // default sale step is 0.01 for weight and 1 for unit
+  const isLegacyGramStep = inventoryType === 'weight' && salesUnit === 'g' && rawSaleStep >= 10;
+  const saleStep = Number.isFinite(rawSaleStep) && rawSaleStep > 0 && !isLegacyGramStep ? rawSaleStep : defaultSaleStep;
 
   return { inventoryType, baseUnit, salesUnit, quantityOnHand, saleStep };
 }
 
+// Converting g to kg and vice versa
 function convertSalesToBase(quantity, soldUnit, baseUnit) {
   const numeric = Number(quantity || 0);
   if (baseUnit === 'g' && soldUnit === 'kg') {
@@ -33,8 +53,12 @@ function convertBaseToSales(quantity, baseUnit, salesUnit) {
   return numeric;
 }
 
+// Format quantity for display
 function formatQuantity(value, unit) {
   const numeric = Number(value || 0);
+  if (unit === 'g') {
+    return `${numeric.toFixed(2).replace(/\.00$/, '')} ${unit}`;
+  }
   if (unit === 'kg') {
     return `${numeric.toFixed(2).replace(/\.00$/, '')} ${unit}`;
   }
@@ -44,12 +68,14 @@ function formatQuantity(value, unit) {
   return `${numeric.toFixed(0)} ${unit}`;
 }
 
+// Quantity of the cart item in base unit (g or pcs) for stock checking
 function getCartItemBaseQuantity(cartItem, product) {
   const productMeta = getProductInventoryMeta(product || cartItem || {});
   const soldUnit = cartItem.soldUnit || productMeta.salesUnit;
   return convertSalesToBase(cartItem.quantity, soldUnit, productMeta.baseUnit);
 }
 
+// Round the value 
 function toStep(value, step, mode) {
   const numeric = Number(value || 0);
   if (mode === 'unit') {
@@ -61,9 +87,7 @@ function toStep(value, step, mode) {
   return Number(rounded.toFixed(precision));
 }
 
-/**
- * Filter products locally by search query
- */
+// Filter Products by search query
 function filterProducts(query = '') {
   const normalizedQuery = (query || '').trim().toLowerCase();
   const allProducts = Products.getAll() || [];
@@ -78,9 +102,7 @@ function filterProducts(query = '') {
   );
 }
 
-/**
- * Initialize page
- */
+// Initialize the cashier page
 async function initPage() {
   // Check authentication
   Auth.requireCashier();
@@ -100,29 +122,24 @@ async function initPage() {
   updateCartDisplay();
 }
 
-/**
- * Load products from API
- */
+// Load products with the API
 async function loadProducts() {
   try {
     isLoading = true;
     document.getElementById('productsGrid').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
     const token = API.getToken();
-    console.log('Token exists:', !!token);
-    console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'none');
 
     await Products.fetchAll();
     displayProducts(Products.getAll());
   } catch (error) {
     console.error('Error loading products:', error);
-    console.log('Current token:', API.getToken());
+    // console.log('Current token:', API.getToken());
     document.getElementById('productsGrid').innerHTML = `
       <div class="empty-products">
         <div class="empty-products-icon">❌</div>
         <p>Error loading products</p>
         <p style="font-size: 12px; color: var(--gray-400);">${error.message}</p>
-        <p style="font-size: 11px; color: var(--gray-300); margin-top: 10px;">Check browser console for details</p>
       </div>
     `;
   } finally {
@@ -198,10 +215,20 @@ function displayProducts(products, replace = true) {
           return;
         }
 
+        // let addQuantity = inventory.saleStep;
+        let addQuantity = 1;
         if (requestedBaseQuantity > inventory.quantityOnHand) {
-          const availableSales = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
-          showNotification(`Cannot add more than available stock (${formatQuantity(availableSales, inventory.salesUnit)})`, 'error');
-          return;
+          // If stock is lower than one step, add only the remaining amount.
+          const remainingBase = inventory.quantityOnHand - currentQtyInCartBase;
+          if (remainingBase <= 0) {
+            const availableSales = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
+            showNotification(`Cannot add more than available stock (${formatQuantity(availableSales, inventory.salesUnit)})`, 'error');
+            return;
+          }
+
+          const stepBase = convertSalesToBase(inventory.saleStep, inventory.salesUnit, inventory.baseUnit);
+          const addBase = Math.min(stepBase, remainingBase);
+          addQuantity = convertBaseToSales(addBase, inventory.baseUnit, inventory.salesUnit);
         }
 
         Cart.addItem({
@@ -209,7 +236,7 @@ function displayProducts(products, replace = true) {
           soldUnit: inventory.salesUnit,
           saleStep: inventory.saleStep,
           inventoryType: inventory.inventoryType,
-        }, inventory.saleStep);
+        }, addQuantity);
         updateCartDisplay();
         showNotification(`${product.name} added to cart`, 'success');
       }
@@ -272,7 +299,7 @@ function setupEventListeners() {
   document.getElementById('searchInput').addEventListener('input', async (e) => {
     const query = e.target.value;
     // Auto-load products if empty and no search query
-    if (Products.getAll().length === 0 && !query) {
+    if (Products.getAll().length === 0 && !query && !isLoading) {
       try {
         isLoading = true;
         await Products.fetchAll();
@@ -352,6 +379,8 @@ function updateCartDisplay() {
     const inventory = getProductInventoryMeta(product || item || {});
     const maxStock = inventory.quantityOnHand;
     const maxSalesQuantity = convertBaseToSales(maxStock, inventory.baseUnit, item.soldUnit || inventory.salesUnit);
+
+    // const minQUantity = 1;
     const step = Number(item.saleStep || inventory.saleStep || 1);
     const inputStep = inventory.inventoryType === 'weight' ? step : 1;
     return `
@@ -362,14 +391,19 @@ function updateCartDisplay() {
       </div>
       <div class="cart-item-price">${formatPrice(item.price)}</div>
       <div class="cart-item-stock" style="font-size: 12px; color: var(--gray-500);">Stock: ${formatQuantity(maxSalesQuantity, item.soldUnit || inventory.salesUnit)}</div>
-      <div class="cart-item-qty">
-        <button type="button" class="qty-decrease" data-id="${item.id}">−</button>
-        <input type="number" value="${item.quantity}" min="${inputStep}" step="${inputStep}" max="${Math.max(inputStep, maxSalesQuantity)}" data-id="${item.id}" class="qty-input">
-        <button type="button" class="qty-increase" data-id="${item.id}">+</button>
+      <div class="cart-item-controls">
+        <div class="cart-item-qty">
+          <button type="button" class="qty-decrease" data-id="${item.id}">−</button>
+          <input type="number" value="${item.quantity}" min="${inputStep}" step="${inputStep}" max="${Math.max(inputStep, maxSalesQuantity)}" data-id="${item.id}" class="qty-input">
+          <button type="button" class="qty-increase" data-id="${item.id}">+</button>
+        </div>
       </div>
     </div>
-  `;
+    `;
   }).join('');
+
+  // Note: The unit selection dropdown is commented out for now, but can be added back if needed in the future.
+  //${inventory.inventoryType === 'weight' ? '<div class="cart-item-unit"><select><option value="kg">kg</option><option value="g">g</option></select></div>': ''}
 
   // Attach event handlers
   cartItemsContainer.querySelectorAll('.cart-item-remove').forEach(btn => {
@@ -429,24 +463,63 @@ function updateCartDisplay() {
   cartItemsContainer.querySelectorAll('.qty-input').forEach(input => {
     input.addEventListener('change', (e) => {
       const id = input.dataset.id;
-      const requestedQuantity = parseFloat(input.value);
+      const requestedQuantity = parseLocaleDecimal(input.value);
       const item = Cart.getItems().find(i => i.id === id);
+
+      if (!item) {
+        return;
+      }
+
+      if (!Number.isFinite(requestedQuantity)) {
+        input.value = String(item.quantity);
+        showNotification('Invalid quantity format', 'error');
+        return;
+      }
+
       const product = Products.getById(id);
       const inventory = getProductInventoryMeta(product || item || {});
-      const step = Number(item?.saleStep || inventory.saleStep || 1);
+      const step = Number(item.saleStep || inventory.saleStep || 1);
       const minQuantity = inventory.inventoryType === 'weight' ? step : 1;
       const normalizedQuantity = toStep(requestedQuantity, step, inventory.inventoryType);
-      const maxQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, item?.soldUnit || inventory.salesUnit);
+      const maxQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, item.soldUnit || inventory.salesUnit);
       const safeQuantity = Math.min(Math.max(minQuantity, normalizedQuantity), Math.max(minQuantity, maxQuantity));
 
       if (normalizedQuantity > maxQuantity) {
-        showNotification(`Cannot exceed available stock (${formatQuantity(maxQuantity, item?.soldUnit || inventory.salesUnit)})`, 'error');
+        showNotification(`Cannot exceed available stock (${formatQuantity(maxQuantity, item.soldUnit || inventory.salesUnit)})`, 'error');
       }
 
       input.value = String(safeQuantity);
       Cart.updateQuantity(id, safeQuantity);
     });
   });
+
+  // for now it wont be needed, but i will leave it here for now just in case i need it later
+  // cartItemsContainer.querySelectorAll('.cart-item-unit select').forEach(select => {
+  //   select.addEventListener('change', (e) => {
+  //     const id = select.dataset.id
+  //     const item = Cart.getItems().find(i => i.id === id);
+  //     console.log("testing", id, item, select.value);
+  //     const product = Products.getById(id);
+  //     const inventory = getProductInventoryMeta(product || item || {});
+  //     const newSoldUnit = inventory.salesUnit;
+  //     console.log("newSoldUnit", newSoldUnit)
+  //     console.log("itemUnit", itemUnit)
+  //     console.log("inventoryUnit", inventory.salesUnit)
+  //     if (!item) return;
+      
+  //     // if(select.value === 'kg' || select.value === 'g') {
+        
+  //     // }
+
+  //     // const product = Products.getById(id);
+  //     // const inventory = getProductInventoryMeta(product || item || {});
+  //     // const newSoldUnit = select.value || inventory.salesUnit;
+  //     // const currentBaseQuantity = convertSalesToBase(item.quantity, item.soldUnit || inventory.salesUnit, inventory.baseUnit);
+  //     // const newSalesQuantity = convertBaseToSales(currentBaseQuantity, inventory.baseUnit, newSoldUnit);
+
+      
+  //   });
+  // });
 }
 
 /**
@@ -480,11 +553,19 @@ async function handleCheckout(e) {
   }
 
   try {
-    await Products.fetchAll();
+    // await Products.fetchAll();
 
     const currentCartItems = Cart.getItems();
+    const freshResponses = await Promise.all(
+      currentCartItems.map(item => API.get(`/products/${item.id}`))
+    );
+    const freshById = Object.fromEntries(
+      freshResponses
+        .filter(res => res && res.data)
+        .map(res => [res.data.id, res.data])
+    );
     for (const cartItem of currentCartItems) {
-      const latestProduct = Products.getById(cartItem.id);
+      const latestProduct = freshById[cartItem.id];
 
       if (!latestProduct) {
         showNotification(`Product not found: ${cartItem.name}`, 'error');
@@ -539,19 +620,33 @@ async function handleCheckout(e) {
     if (response.success) {
       showNotification('Transaction completed successfully!', 'success');
 
-      await Products.fetchAll();
-      
+      // Patch stock locally instead of refetching the whole catalog
+      currentCartItems.forEach(cartItem => {
+        const product = Products.getById(cartItem.id);
+        if (product) {
+          const inventory = getProductInventoryMeta(product);
+          const soldBaseQty = convertSalesToBase(
+            cartItem.quantity,
+            cartItem.soldUnit || inventory.salesUnit,
+            inventory.baseUnit
+          );
+          product.quantityOnHand = Math.max(0, inventory.quantityOnHand - soldBaseQty);
+          product.stock = product.quantityOnHand;
+        }
+      });
+
       // Print receipt
       setTimeout(() => {
         printReceipt(response.data, transactionData);
       }, 500);
-
+      
       // Clear cart and form
       Cart.clear();
       document.getElementById('checkoutForm').reset();
       updateCartDisplay();
       document.getElementById('searchInput').value = '';
       displayProducts(Products.getAll());
+
     } else {
       showNotification(response.error || 'Transaction failed', 'error');
     }
@@ -567,9 +662,7 @@ async function handleCheckout(e) {
   }
 }
 
-/**
- * Print receipt
- */
+// Print receipt
 function printReceipt(transaction, data) {
   const receiptWindow = window.open('', 'receipt', 'width=400,height=600');
   const receiptHtml = `
@@ -649,9 +742,7 @@ function printReceipt(transaction, data) {
   receiptWindow.document.close();
 }
 
-/**
- * Show notification
- */
+// Show notification message
 function showNotification(message, type = 'info') {
   // Create alert if it doesn't exist
   let alertEl = document.getElementById('notification');
@@ -702,14 +793,10 @@ function showNotification(message, type = 'info') {
   }, 4000);
 }
 
-/**
- * Format price for display
- */
+// Format price for display
 function formatPrice(price) {
   return Formatter.formatCurrency(price);
 }
 
-/**
- * Initialize when page loads
- */
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', initPage);

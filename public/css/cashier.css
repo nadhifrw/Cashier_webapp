@@ -276,6 +276,12 @@
   margin-bottom: 8px;
 }
 
+.cart-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .cart-item-qty {
   display: flex;
   align-items: center;
@@ -317,6 +323,25 @@
 
 .cart-item-qty input:focus {
   outline: none;
+}
+
+.cart-item-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  width: fit-content;
+  height: 26px;
+}
+
+.cart-item-unit select {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .empty-cart {

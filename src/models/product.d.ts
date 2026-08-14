@@ -1,5 +1,5 @@
 export type InventoryType = 'unit' | 'weight';
-export type BaseUnit = 'pcs' | 'g';
+export type BaseUnit = 'pcs' | 'g' | 'kg';
 export type SalesUnit = 'pcs' | 'g' | 'kg';
 export interface Product {
     id: string;

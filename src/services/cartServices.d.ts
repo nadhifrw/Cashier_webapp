@@ -5,12 +5,10 @@ export declare const cartService: {
     updateQuantity(sessionId: string, productId: string, quantity: number): Promise<CartItem[] | null>;
     removeItem(sessionId: string, productId: string): CartItem[];
     clearCart(sessionId: string): void;
-    calculateTotals(sessionId: string, taxRate?: number, discount?: number): {
+    calculateTotals(sessionId: string): {
         items: CartItem[];
         itemCount: number;
         subtotal: number;
-        tax: number;
-        discount: number;
         total: number;
     };
     validateCart(sessionId: string): Promise<{

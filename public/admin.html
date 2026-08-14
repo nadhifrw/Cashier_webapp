@@ -43,7 +43,7 @@
             <div class="stat-value" id="totalProducts">0</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Total Users</div>
+            <div class="stat-label">Total Pengguna</div>
             <div class="stat-value" id="totalUsers">0</div>
           </div>
           <div class="stat-card">
@@ -61,6 +61,11 @@
           <ul id="lowStockList" class="low-stock-list">
             <li class="low-stock-empty">Tidak ada produk dengan stok rendah.</li>
           </ul>
+          <div class="table-actions" style="margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" id="loadMoreLowStockBtn" onclick="loadMoreLowStockProducts()" style="display: none;">
+              Load More Low Stock
+            </button>
+          </div>
         </div>
       </section>
 
@@ -160,6 +165,12 @@
             </tbody>
           </table>
         </div>
+
+        <div class="table-actions" style="margin-top: 12px;">
+          <button type="button" class="btn btn-secondary" id="loadMoreProductsBtn" onclick="loadMoreProducts()" style="display: none;">
+            Load More Products
+          </button>
+        </div>
       </section>
 
       <!-- Users Section -->
@@ -236,6 +247,12 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="table-actions" style="margin-top: 12px;">
+          <button type="button" class="btn btn-secondary" id="loadMoreTransactionsBtn" onclick="loadMoreTransactions()" style="display: none;">
+            Load More Transactions
+          </button>
         </div>
       </section>
 

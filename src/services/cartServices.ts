@@ -81,18 +81,17 @@ export const cartService = {
   },
 
   // Calculate cart totals
-  calculateTotals(sessionId: string, taxRate: number = 0.11, discount: number = 0) {
+  calculateTotals(sessionId: string) {
     const cart = this.getCart(sessionId);
     const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    const tax = subtotal * taxRate;
-    const total = subtotal + tax - discount;
+    // const tax = subtotal * taxRate;
+    // tax and discount were removed 
+    const total = subtotal ;
     
     return {
       items: cart,
       itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
       subtotal,
-      tax,
-      discount,
       total
     };
   },

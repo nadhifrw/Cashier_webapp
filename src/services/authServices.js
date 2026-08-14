@@ -45,10 +45,6 @@ exports.authService = {
         if (!userData.isActive) {
             throw new Error('Account is deactivated');
         }
-        // Update last login
-        await firebase_1.dbCashier.collection(COLLECTION_NAME).doc(decodedToken.uid).update({
-            lastLoginAt: firestore_1.Timestamp.now()
-        });
         return {
             id: userDoc.id,
             ...userData,
@@ -159,6 +155,9 @@ exports.authService = {
             const user = await this.getUserById(data.localId);
             if (!user)
                 throw new Error('User profile not found');
+            await firebase_1.dbCashier.collection(COLLECTION_NAME).doc(data.localId).update({
+                lastLoginAt: firestore_1.Timestamp.now()
+            });
             return {
                 idToken: data.idToken,
                 refreshToken: data.refreshToken,
