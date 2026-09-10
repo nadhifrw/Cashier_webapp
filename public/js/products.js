@@ -20,7 +20,7 @@ const Products = {
       ? product.salesUnit
       : (inventoryType === 'weight' ? 'kg' : 'pcs');
     const quantityOnHand = Number(product.quantityOnHand ?? product.stock ?? 0);
-    const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1;
+    const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.01 : 0.01) : 1;
     const rawSaleStep = Number(product.saleStep);
     const isLegacyGramStep = inventoryType === 'weight' && salesUnit === 'g' && rawSaleStep >= 10;
     const normalizedSaleStep = Number.isFinite(rawSaleStep) && rawSaleStep > 0 && !isLegacyGramStep

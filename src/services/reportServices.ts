@@ -39,14 +39,31 @@ export const ReportServices = {
                 ...doc.data(),
             })) as any[];
 
+            const productMap = new Map<string, any>();
+            for (const transaction of transactions) {
+                for (const item of transaction.items || []) {
+                    const key = item.productId || item.name;
+                    if (productMap.has(key)) {
+                        const product = productMap.get(key)!;
+                        product.quantity += item.quantity;
+                        product.revenue += item.subtotal;
+                    } else {
+                        productMap.set(key, {
+                            name: item.name || item.productId,
+                            productId: item.productId,
+                            price: item.price,
+                            quantity: item.quantity,
+                            revenue: item.subtotal,
+                        });
+                    }
+                }
+            }
+
             const report = {
                 date,
                 totalTransactions: transactions.length,
                 totalRevenue: transactions.reduce((sum, t) => sum + (t.total || 0), 0),
-                totalItemsSold: transactions.reduce((sum, t) => {
-                    const itemCount = t.items?.reduce((count: number, item: any) => count + item.quantity, 0) || 0;
-                    return sum + itemCount;
-                }, 0),
+                totalItemsSold: productMap.size,
                 averageTransactionValue: 0,
                 paymentBreakdown: {} as Record<PaymentMethod, any>,
                 topProducts: [] as any[],
@@ -68,26 +85,6 @@ export const ReportServices = {
                 };
             }
 
-            // Top products
-            const productMap = new Map<string, any>();
-            for (const transaction of transactions) {
-                for (const item of transaction.items || []) {
-                    const key = item.productId || item.name;
-                    if (productMap.has(key)) {
-                        const product = productMap.get(key)!;
-                        product.quantity += item.quantity;
-                        product.revenue += item.subtotal;
-                    } else {
-                        productMap.set(key, {
-                            name: item.name || item.productId,
-                            productId: item.productId,
-                            price: item.price,
-                            quantity: item.quantity,
-                            revenue: item.subtotal,
-                        });
-                    }
-                }
-            }
             report.topProducts = Array.from(productMap.values())
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 10);
@@ -117,15 +114,20 @@ export const ReportServices = {
                 ...doc.data(),
             })) as any[];
 
+            const uniqueProductKeys = new Set();
+            for (const transaction of transactions) {
+                for (const item of transaction.items || []) {
+                    const key = item.productId || item.name;
+                    uniqueProductKeys.add(key);
+                }
+            }
+
             const report = {
                 year,
                 month,
                 totalTransactions: transactions.length,
                 totalRevenue: transactions.reduce((sum, t) => sum + (t.total || 0), 0),
-                totalItemsSold: transactions.reduce((sum, t) => {
-                    const itemCount = t.items?.reduce((count: number, item: any) => count + item.quantity, 0) || 0;
-                    return sum + itemCount;
-                }, 0),
+                totalItemsSold: uniqueProductKeys.size,
                 averageTransactionValue: 0,
                 paymentBreakdown: {} as Record<PaymentMethod, any>,
                 dailyBreakdown: {} as Record<string, any>,

@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Form submissions
   document.getElementById('loginForm').addEventListener('submit', handleLogin);
-  document.getElementById('registerForm').addEventListener('submit', handleRegister);
+  // document.getElementById('registerForm').addEventListener('submit', handleRegister);
 
   // Demo data (optional - for testing)
   const urlParams = new URLSearchParams(window.location.search);

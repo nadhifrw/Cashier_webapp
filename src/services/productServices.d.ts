@@ -6,7 +6,7 @@ export declare const ProductServices: {
         hasMore: boolean;
         totalProducts: number;
     }>;
-    getLowStockProducts(threshold?: number, limit?: number): Promise<Product[]>;
+    getLowStockProducts(threshold?: number): Promise<Product[]>;
     createProduct(input: CreateProduct): Promise<Product>;
     update(id: string, input: UpdateProduct): Promise<Product | null>;
     delete(id: string): Promise<void>;

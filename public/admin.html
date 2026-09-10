@@ -11,7 +11,11 @@
   <div class="admin-layout">
     <!-- Header -->
     <header class="admin-header">
-      <h1>KANALA Admin Panel</h1>
+      <div class="header-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" id="sidebar-btn-open" onclick="showSidebar()"><path d="M96 160C96 142.3 110.3 128 128 128L512 128C529.7 128 544 142.3 544 160C544 177.7 529.7 192 512 192L128 192C110.3 192 96 177.7 96 160zM96 320C96 302.3 110.3 288 128 288L512 288C529.7 288 544 302.3 544 320C544 337.7 529.7 352 512 352L128 352C110.3 352 96 337.7 96 320zM544 480C544 497.7 529.7 512 512 512L128 512C110.3 512 96 497.7 96 480C96 462.3 110.3 448 128 448L512 448C529.7 448 544 462.3 544 480z"/></svg>
+        <h1>KANALA Admin Panel</h1>
+      </div>
+      
       <div class="user-info">
         <span>Welcome, <strong id="userName">Admin</strong></span>
         <button class="btn" id="logoutBtn">Logout</button>
@@ -19,8 +23,14 @@
     </header>
 
     <!-- Sidebar Navigation -->
-    <aside class="admin-sidebar">
+    <aside class="admin-sidebar" id="adminSidebar">
+      <div class="sidebar-header" >
+        <!-- <div>KANALA Admin Panel</div> -->
+        <div class="sidebar-title"><h1>KANALA Admin Panel</h1></div>
+        <div class="sidebar-btn-close" id="sidebar-btn-close" onclick="hideSidebar()">&times</div>
+      </div>
       <nav class="sidebar-nav">
+        <!-- <li><button onclick="hideSidebar()" id="sidebar-btn-close">tutup</button></li> -->
         <li><button data-section="dashboard" class="nav-btn active">Dashboard</button></li>
         <li><button data-section="products" class="nav-btn">Produk</button></li>
         <li><button data-section="users" class="nav-btn">Management User</button></li>
@@ -55,16 +65,30 @@
             <div class="stat-value" id="totalLowStock">0</div>
           </div>
         </div>
-
-        <div class="dashboard-warning-card">
-          <h3>⚠️ Stock Sedikit</h3>
-          <ul id="lowStockList" class="low-stock-list">
-            <li class="low-stock-empty">Tidak ada produk dengan stok rendah.</li>
-          </ul>
-          <div class="table-actions" style="margin-top: 12px;">
-            <button type="button" class="btn btn-secondary" id="loadMoreLowStockBtn" onclick="loadMoreLowStockProducts()" style="display: none;">
-              Load More Low Stock
-            </button>
+        <div>
+          <svg fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" id="buttonLowStockTable" onclick="renderLowStockList()"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="m2.43 4.8-2.43 2.422 12 11.978 12-11.978-2.43-2.422-9.57 9.547z"></path></g></svg>
+          <!-- renderLowStockList -->
+          <!-- displayLowStockTable  -->
+        </div>
+        <div>  
+          <div class="table-container" id="lowStockTable">
+            <table>
+              <thead>
+                <tr class="table-header">
+                  <th>Product ID</th>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Available</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="lowStockList">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--gray-500);">Loading low stock products...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -74,6 +98,20 @@
         <div class="section-header">
           <h2>Management Produk</h2>
           <button class="btn btn-primary" id="addProductBtn">+ Tambah Produk baru</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <label for="searchInput">Search Product</label>
+          <div class="search-container">
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="Search products..."
+              autocomplete="off"
+            >
+            <button class="btn btn-primary" id="searchBtn" onclick="searchProducts()">Search</button>
+          </div>
         </div>
 
         <!-- Add/Edit Product Form -->
@@ -144,12 +182,12 @@
             </div>
           </form>
         </div>
-
+        
         <!-- Products Table -->
         <div class="table-container">
           <table>
             <thead>
-              <tr>
+              <tr class="table-header">
                 <th>Product ID</th>
                 <th>Name</th>
                 <th>Price</th>
@@ -249,11 +287,11 @@
           </table>
         </div>
 
-        <div class="table-actions" style="margin-top: 12px;">
+        <!-- <div class="table-actions" style="margin-top: 12px;">
           <button type="button" class="btn btn-secondary" id="loadMoreTransactionsBtn" onclick="loadMoreTransactions()" style="display: none;">
             Load More Transactions
           </button>
-        </div>
+        </div> -->
       </section>
 
       <!-- Transactions Section -->
@@ -282,6 +320,12 @@
             </tbody>
           </table>
         </div>
+
+        <div class="table-actions" style="margin-top: 12px;">
+          <button type="button" class="btn btn-secondary" id="loadMoreTransactionsBtn" onclick="loadMoreTransactions()" style="display: none;">
+            Load More Transactions
+          </button>
+        </div>
       </section>
 
       <!-- Reports Section -->
@@ -293,33 +337,33 @@
         <!-- Report Filters -->
         <div class="report-filters">
           <div class="form-group">
-            <label for="reportType">Report Type</label>
+            <label for="reportType">Jenis Laporan</label>
             <select id="reportType" onchange="loadReportData()">
               <option value="daily">Laporan Harian</option>
               <option value="monthly">Laporan Bulanan</option>
               <option value="inventory-status">Status Inventaris</option>
-              <option value="cashier-performance">Performa Kasir</option>
+              <!-- <option value="cashier-performance">Performa Kasir</option> -->
               <option value="revenue-trend">Tren Pendapatan</option>
             </select>
           </div>
 
           <!-- Daily Report Filter -->
           <div id="dailyFilter" class="form-group">
-            <label for="dailyDate">Select Date</label>
+            <label for="dailyDate">Pilih Tanggal</label>
             <input type="date" id="dailyDate" />
           </div>
 
           <!-- Monthly Report Filter -->
           <div id="monthlyFilter" class="form-group" style="display: none;">
-            <label for="monthYear">Select Month</label>
+            <label for="monthYear">Pilih Bulan</label>
             <input type="month" id="monthYear" />
           </div>
 
           <!-- Date Range Filter -->
           <div id="dateRangeFilter" class="form-group" style="display: none;">
-            <label for="startDate">Start Date</label>
+            <label for="startDate">Tanggal Mulai</label>
             <input type="date" id="startDate" />
-            <label for="endDate">End Date</label>
+            <label for="endDate">Tanggal Berakhir</label>
             <input type="date" id="endDate" />
           </div>
 
@@ -334,13 +378,13 @@
             </select>
           </div>
 
-          <button class="btn btn-primary" onclick="loadReportData()" style="padding: 10px 20px;">Generate Report</button>
+          <button class="btn btn-primary" onclick="loadReportData()" style="padding: 10px 20px;">Buat Laporan</button>
         </div>
 
         <!-- Report Results -->
         <div id="reportResults" class="report-results">
           <div style="text-align: center; color: var(--gray-500); padding: 60px 20px;">
-            Select a report type and click "Generate Report" to view results
+            Pilih jenis laporan, lalu klik “Buat Laporan” untuk melihat hasilnya
           </div>
         </div>
       </section>

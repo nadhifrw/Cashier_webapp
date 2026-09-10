@@ -14,6 +14,8 @@ router.get('/low-stock', middleware_1.isAuthenticated, allowRead, async (req, re
         const threshold = Number.isFinite(parsedThreshold) && Number(parsedThreshold) >= 0
             ? Number(parsedThreshold)
             : undefined;
+        // const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 10;
+        // const startAfter = req.query.startAfter ? String(req.query.startAfter) : undefined;
         const products = await productServices_1.ProductServices.getLowStockProducts(threshold);
         res.json({
             success: true,

@@ -61,7 +61,7 @@ exports.ProductServices = {
             throw error;
         }
     },
-    async getLowStockProducts(threshold, limit = 10) {
+    async getLowStockProducts(threshold) {
         try {
             // Query directly for low stock products to minimize reads
             const hasCustomThreshold = Number.isFinite(threshold) && Number(threshold) >= 0;
@@ -69,7 +69,7 @@ exports.ProductServices = {
             // Fallback to fetching with limit and filtering
             const productsSnapshot = await firebase_1.dbCashier.collection(COLLECTION_NAME)
                 .orderBy('quantityOnHand', 'asc')
-                .limit(limit * 3) // Fetch more to account for filtering
+                // .limit(limit * 3) // Fetch more to account for filtering
                 .get();
             let products = productsSnapshot.docs.map(doc => normalizeProductData(doc.id, doc.data()));
             // Filter by threshold
@@ -80,8 +80,8 @@ exports.ProductServices = {
                     ? thresholdValue
                     : toFiniteNumber(product.lowStockThreshold, product.inventoryType === 'weight' ? 1000 : 10);
                 return quantityOnHand <= productThreshold;
-            })
-                .slice(0, limit); // Limit final results
+            });
+            // .slice(0, limit); // Limit final results
             return products;
         }
         catch (error) {
@@ -180,17 +180,30 @@ exports.ProductServices = {
         }
     },
     // search items
+    // async search(query: string): Promise<Product[]> {
+    //     try {
+    //         const { products: productsAll } = await this.getAllProducts();
+    //         const lowerQuery = query.toLowerCase();
+    //         return productsAll.filter((product) =>
+    //             product.name.toLowerCase().includes(lowerQuery) ||
+    //             (product.category && product.category.toLowerCase().includes(lowerQuery))
+    //         )
+    //     }
+    //     catch(error) {
+    //         console.error('Error searching products:', (error as Error).message);
+    //         throw error;
+    //     }
+    // },
     async search(query) {
-        try {
-            const { products: productsAll } = await this.getAllProducts();
-            const lowerQuery = query.toLowerCase();
-            return productsAll.filter((product) => product.name.toLowerCase().includes(lowerQuery) ||
-                (product.category && product.category.toLowerCase().includes(lowerQuery)));
-        }
-        catch (error) {
-            console.error('Error searching products:', error.message);
-            throw error;
-        }
+        const snapshot = await firebase_1.dbCashier
+            .collection(COLLECTION_NAME)
+            .orderBy('name')
+            .get();
+        const lowerQuery = query.toLowerCase();
+        return snapshot.docs
+            .map(doc => normalizeProductData(doc.id, doc.data()))
+            .filter(product => product.name.toLowerCase().includes(lowerQuery) ||
+            String(product.category || '').toLowerCase().includes(lowerQuery));
     },
     async getById(id) {
         try {

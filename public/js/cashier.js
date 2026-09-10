@@ -29,7 +29,7 @@ function getProductInventoryMeta(product) {
     : (inventoryType === 'weight' ? 'kg' : 'pcs');
   const quantityOnHand = Number(product.quantityOnHand ?? product.stock ?? 0);
   const rawSaleStep = Number(product.saleStep); //i think its like how many units being sold at once (the number u add on the cart)
-  const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1; // default sale step is 0.01 for weight and 1 for unit
+  const defaultSaleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.01 : 0.01) : 1; // default sale step is 0.01 for weight and 1 for unit
   const isLegacyGramStep = inventoryType === 'weight' && salesUnit === 'g' && rawSaleStep >= 10;
   const saleStep = Number.isFinite(rawSaleStep) && rawSaleStep > 0 && !isLegacyGramStep ? rawSaleStep : defaultSaleStep;
 

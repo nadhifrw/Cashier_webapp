@@ -24,7 +24,7 @@ function getProductInventoryMeta(product) {
     : (inventoryType === 'weight' ? 'kg' : 'pcs');
   const quantityOnHand = Number(product.quantityOnHand ?? product.stock ?? 0);
   const lowStockThreshold = Number(product.lowStockThreshold ?? (inventoryType === 'weight' ? 1000 : 10));
-  const saleStep = Number(product?.saleStep ?? (inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1));
+  const saleStep = Number(product?.saleStep ?? (inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.01 : 0.01) : 1));
   return { inventoryType, baseUnit, salesUnit, quantityOnHand, lowStockThreshold, saleStep };
 }
 
@@ -185,7 +185,7 @@ async function loadDashboard() {
     const todayTransactions = getTodayTransactions(transactions);
     document.getElementById('totalTransactions').textContent = todayTransactions.length;
     document.getElementById('totalLowStock').textContent = lowStockItems.length;
-    renderLowStockList();
+    // renderLowStockList();
 
     // Show warning if important data failed to load
     if (products.length === 0) {
@@ -245,53 +245,61 @@ async function loadLowStockProducts() {
   }
 }
 
-async function loadMoreLowStockProducts() {
-  if (!lowStockHasMore || !lowStockNextCursor) return;
+// Search Products
+// function searchProducts() {
+//   if (!products || products.length === 0) {
+//     return;
+//   }
+//   const query = document.getElementById('searchInput').value.trim().toLowerCase();
+//   if (query == ''){
+//     return;
+//   }
+//   console.log('Searching for products with query:', query);
+//   const filteredProducts = products.filter(product => product.name.toLowerCase().includes(query));
+//   displayProducts(filteredProducts);
+// }
+// function searchProducts() {
+//   const query = document.getElementById('searchInput').value.trim().toLowerCase();
 
-  try {
-    const response = await API.getLowStockProducts(null, 50, lowStockNextCursor);
-    const newItems = response?.data && response.data.length > 0 ? response.data : [];
-    lowStockItems = lowStockItems.concat(newItems);
-    lowStockHasMore = response?.pagination?.hasMore ?? false;
-    lowStockNextCursor = response?.pagination?.nextCursor ?? null;
-    renderLowStockList();
-  } catch (error) {
-    console.error('Error loading more low stock products:', error.message);
-    showNotification(`Error loading more low stock products: ${error.message}`, 'error');
-  }
-}
+//   const filteredProducts = !query
+//     ? products
+//     : products.filter(product =>
+//         product.name.toLowerCase().includes(query)
+//       );
 
-function renderLowStockList() {
-  const lowStockList = document.getElementById('lowStockList');
-  if (!lowStockList) return;
+//   displayProducts(filteredProducts);
+// }
+async function searchProducts() {
+  const query = document.getElementById('searchInput').value.trim();
 
-  if (!lowStockItems || lowStockItems.length === 0) {
-    lowStockList.innerHTML = '<li class="low-stock-empty">No low stock items.</li>';
+  if (!query) {
+    await loadProducts();
     return;
   }
 
-  lowStockList.innerHTML = lowStockItems.map(product => `
-    <li class="low-stock-item">
-      <strong>${product.name || product.id}</strong>
-      <span>${(() => {
-        const inventory = getProductInventoryMeta(product);
-        const salesQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
-        return `Stock: ${formatQuantity(salesQuantity, inventory.salesUnit)}`;
-      })()}</span>
-    </li>
-  `).join('');
+  try {
+    const response = await API.getProducts(query);
 
-  updateLoadMoreButtons();
+    productsHasMore = false;
+    productsNextCursor = null;
+    displayProducts(response.data || []);
+  } catch (error) {
+    console.error('Error searching products:', error);
+    showNotification('Failed to search products', 'error');
+  }
 }
 
-/**
- * Display products in table
- */
-function displayProducts() {
-  const tbody = document.getElementById('productsTableBody');
+// Table Low Stock display
+function renderLowStockList() {
+  const lowStockTable = document.getElementById('lowStockTable');
+  const lowStockList = document.getElementById('lowStockList');
+  const buttonLowStockTable = document.getElementById('buttonLowStockTable');
+  lowStockTable.classList.toggle('show');
+  buttonLowStockTable.classList.toggle('active');
+  // lowStockTable.style.display = 'block';
 
-  if (!products || products.length === 0) {
-    tbody.innerHTML = `
+  if (!lowStockItems || lowStockItems.length === 0) {
+    lowStockList.innerHTML = `
       <tr>
         <td colspan="6" style="text-align: center; color: var(--gray-500); padding: 40px;">
           No products found
@@ -302,14 +310,96 @@ function displayProducts() {
     return;
   }
 
-  tbody.innerHTML = products.map(product => `
-    <tr>
+  lowStockList.innerHTML = lowStockItems.map(product => `
+    <tr class="product-row" id="product-lowstock-${product.id}">
       <td>${product.id}</td>
       <td>${product.name}</td>
       <td>${formatPrice(product.price)}</td>
       <td>${(() => {
         const inventory = getProductInventoryMeta(product);
         const salesQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
+        return formatQuantity(salesQuantity, inventory.salesUnit);
+      })()}</td>
+      <td>${product.inventoryType === 'weight' ? 'Weight' : 'Unit'}</td>
+      <td>
+        <div class="action-buttons">
+          <button class="btn-small edit" onclick="editProduct('${product.id}')">Edit</button>
+          <button class="btn-small delete" onclick="deleteProduct('${product.id}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  updateLoadMoreButtons();
+}
+
+/**
+ * Display products in table
+ */
+// function displayProducts() {
+//   const tbody = document.getElementById('productsTableBody');
+
+//   if (!products || products.length === 0) {
+//     tbody.innerHTML = `
+//       <tr>
+//         <td colspan="6" style="text-align: center; color: var(--gray-500); padding: 40px;">
+//           No products found
+//         </td>
+//       </tr>
+//     `;
+//       updateLoadMoreButtons();
+//     return;
+//   }
+
+//   tbody.innerHTML = products.map(product => `
+//     <tr class="product-row" id="product-table-product-${product.id}">
+//       <td>${product.id}</td>
+//       <td>${product.name}</td>
+//       <td>${formatPrice(product.price)}</td>
+//       <td>${(() => {
+//         const inventory = getProductInventoryMeta(product);
+//         const salesQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
+//         return formatQuantity(salesQuantity, inventory.salesUnit);
+//       })()}</td>
+//       <td>${product.inventoryType === 'weight' ? 'Weight' : 'Unit'}</td>
+//       <td>
+//         <div class="action-buttons">
+//           <button class="btn-small edit" onclick="editProduct('${product.id}')">Edit</button>
+//           <button class="btn-small delete" onclick="deleteProduct('${product.id}')">Delete</button>
+//         </div>
+//       </td>
+//     </tr>
+//   `).join('');
+
+//   updateLoadMoreButtons();
+// }
+function displayProducts(productsToDisplay = products) {
+  const tbody = document.getElementById('productsTableBody');
+
+  if (!productsToDisplay || productsToDisplay.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; color: var(--gray-500); padding: 40px;">
+          No products found
+        </td>
+      </tr>
+    `;
+    updateLoadMoreButtons();
+    return;
+  }
+
+  tbody.innerHTML = productsToDisplay.map(product => `
+    <tr class="product-row" id="product-table-product-${product.id}">
+      <td>${product.id}</td>
+      <td>${product.name}</td>
+      <td>${formatPrice(product.price)}</td>
+      <td>${(() => {
+        const inventory = getProductInventoryMeta(product);
+        const salesQuantity = convertBaseToSales(
+          inventory.quantityOnHand,
+          inventory.baseUnit,
+          inventory.salesUnit
+        );
         return formatQuantity(salesQuantity, inventory.salesUnit);
       })()}</td>
       <td>${product.inventoryType === 'weight' ? 'Weight' : 'Unit'}</td>
@@ -334,14 +424,8 @@ function updateLoadMoreButtons() {
 
   const transactionsBtn = document.getElementById('loadMoreTransactionsBtn');
   if (transactionsBtn) {
-    transactionsBtn.style.display = transactionsHasMore ? 'inline-flex' : 'none';
+    transactionsBtn.style.display = transactionsHasMore && getTodayTransactions(transactions).length > 10 ? 'inline-flex' : 'none';
     transactionsBtn.disabled = !transactionsHasMore;
-  }
-
-  const lowStockBtn = document.getElementById('loadMoreLowStockBtn');
-  if (lowStockBtn) {
-    lowStockBtn.style.display = lowStockHasMore ? 'inline-flex' : 'none';
-    lowStockBtn.disabled = !lowStockHasMore;
   }
 }
 
@@ -379,36 +463,143 @@ function showAddProductForm() {
 /**
  * Edit product
  */
+function syncEditProductUnitFields() {
+  const inventoryType = document.getElementById('productInventoryTypeEdit').value;
+  const salesUnitSelect = document.getElementById('productSalesUnitEdit');
+  const thresholdInput = document.getElementById('productLowStockThresholdEdit');
+  const stockInput = document.getElementById('productStockEdit');
+
+  if (inventoryType === 'weight') {
+    salesUnitSelect.innerHTML = '<option value="kg">kg</option><option value="g">g</option>';
+    if (!salesUnitSelect.value || salesUnitSelect.value === 'pcs') {
+      salesUnitSelect.value = 'kg';
+    }
+    stockInput.step = '0.01';
+  } else {
+    salesUnitSelect.innerHTML = '<option value="pcs">pcs</option>';
+    salesUnitSelect.value = 'pcs';
+    stockInput.step = '1';
+  }
+}
+
+let editingRowOriginalHTML = null;
+let editingRowId = null;
+
 function editProduct(productId) {
-  const product = products.find(p => p.id === productId);
+  cancelActiveRowEdit();
+
+  document.getElementById('productFormContainer').style.display = 'none';
+
+  // const formContainer = document.getElementById('productFormContainer');
+  // formContainer.style.display = 'block';
+
+  // const product = products.find(p => p.id === productId);
+  let product = products.find(p => p.id === productId) || lowStockItems.find(p => p.id === productId);
   if (!product) return;
 
+  // console.log(`Editing product: ${productId}`, product);
+
   editingProductId = productId;
-  document.getElementById('productFormTitle').textContent = 'Edit Product';
-  document.getElementById('productFormDesc').textContent = 'Update product information';
-  document.getElementById('productId').value = product.id;
-  document.getElementById('productId').disabled = true;
-  document.getElementById('productName').value = product.name;
-  document.getElementById('productPrice').value = product.price;
+  editingRowId = productId;
+
+  const productRow = document.getElementById(`product-table-product-${productId}`) || document.getElementById(`product-lowstock-${productId}`);
+  editingRowOriginalHTML = productRow.innerHTML;
+
+  productRow.innerHTML = `
+  <td colspan="6" style="padding: 20px;">
+    <div class="form-container" id="productFormContainerEdit" style="display: block;">
+      <div class="form-header">
+        <h3>Edit Produk</h3>
+        <p>Perbaharui informasi produk</p>
+      </div>
+      <form id="productFormRowEdit">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productIdEdit">Product ID</label>
+            <input type="text" id="productIdEdit" required disabled>
+          </div>
+          <div class="form-group">
+            <label for="productNameEdit">Product Name</label>
+            <input type="text" id="productNameEdit" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productPriceEdit">Price (Rp)</label>
+            <input type="number" id="productPriceEdit" step="0.01" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="productStockEdit">Quantity On Hand</label>
+            <input type="number" id="productStockEdit" step="0.01" min="0" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productInventoryTypeEdit">Inventory Type</label>
+            <select id="productInventoryTypeEdit" required>
+              <option value="unit">Unit</option>
+              <option value="weight">Weight</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="productSalesUnitEdit">Sell Unit</label>
+            <select id="productSalesUnitEdit" required>
+              <option value="pcs">pcs</option>
+              <option value="kg">kg</option>
+              <option value="g">g</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productLowStockThresholdEdit">Low Stock Threshold</label>
+            <input type="number" id="productLowStockThresholdEdit" step="0.01" min="0" required>
+          </div>
+        </div>
+        <div class="form-row full">
+          <div class="form-group">
+            <label for="productDescriptionEdit">Description</label>
+            <textarea id="productDescriptionEdit" rows="3" placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save Product</button>
+          <button type="button" class="btn btn-secondary" id="cancelRowEditBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </td>`;
+  // console.log(productRow);
+
+  document.getElementById('productIdEdit').value = product.id;
+  document.getElementById('productNameEdit').value = product.name;
+  document.getElementById('productPriceEdit').value = product.price;
+
   const inventory = getProductInventoryMeta(product);
-  document.getElementById('productInventoryType').value = inventory.inventoryType;
-  syncProductUnitFields();
-  document.getElementById('productSalesUnit').value = inventory.salesUnit;
+  document.getElementById('productInventoryTypeEdit').value = inventory.inventoryType;
+  syncEditProductUnitFields();
+  document.getElementById('productSalesUnitEdit').value = inventory.salesUnit;
+
   const salesQuantity = convertBaseToSales(inventory.quantityOnHand, inventory.baseUnit, inventory.salesUnit);
-  document.getElementById('productStock').value = salesQuantity;
-  document.getElementById('productLowStockThreshold').value = convertBaseToSales(inventory.lowStockThreshold, inventory.baseUnit, inventory.salesUnit);
-  document.getElementById('productDescription').value = product.description || '';
-  const formContainer = document.getElementById('productFormContainer');
-  formContainer.style.display = 'block';
-  document.querySelector('#productFormContainer button[type="submit"]').textContent = 'Update Product';
+  document.getElementById('productStockEdit').value = salesQuantity;
+
+  const thresholdInSalesUnit = convertBaseToSales(inventory.lowStockThreshold, inventory.baseUnit, inventory.salesUnit);
+  document.getElementById('productLowStockThresholdEdit').value = thresholdInSalesUnit;
+
+  document.getElementById('productDescriptionEdit').value = product.description || '';
+
+  document.getElementById('productInventoryTypeEdit').addEventListener('change', syncEditProductUnitFields);
+  document.getElementById('cancelRowEditBtn').addEventListener('click', () => cancelActiveRowEdit());
+  document.getElementById('productFormRowEdit').addEventListener('submit', (e) => handleProductEditSubmit(e, productId));
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const formContainer = document.getElementById('productFormContainerEdit');
   formContainer.scrollIntoView({
     behavior: reduceMotion ? 'auto' : 'smooth',
     block: 'start'
   });
 
-  const nameInput = document.getElementById('productName');
+  const nameInput = document.getElementById('productNameEdit');
   if (nameInput) {
     setTimeout(() => nameInput.focus(), reduceMotion ? 0 : 150);
   }
@@ -417,11 +608,47 @@ function editProduct(productId) {
 /**
  * Cancel product form
  */
+function cancelActiveRowEdit() {
+  if (editingRowId === null) return;
+  const productRow = document.getElementById(`product-table-product-${editingRowId}`) || document.getElementById(`product-lowstock-${editingRowId}`);
+  if (productRow && editingRowOriginalHTML !== null) {
+    productRow.innerHTML = editingRowOriginalHTML;
+  }
+  editingRowOriginalHTML = null;
+  editingRowId = null;
+  editingProductId = null;
+}
+
 function cancelProductForm() {
   document.getElementById('productFormContainer').style.display = 'none';
   document.getElementById('productForm').reset();
   editingProductId = null;
+  cancelActiveRowEdit();
 }
+
+function showSidebar() {
+  document.getElementById('adminSidebar').classList.add('is-open');
+  document.querySelector('.admin-layout').classList.add('sidebar-open');
+  document.getElementById('sidebar-btn-open').style.display = 'none';
+}
+
+function hideSidebar() {
+  document.getElementById('adminSidebar').classList.remove('is-open');
+  document.querySelector('.admin-layout').classList.remove('sidebar-open');
+  document.getElementById('sidebar-btn-open').style.display = 'block';
+}
+
+window.addEventListener('scroll', () => {
+  const adminHeader = document.querySelector('.admin-header');
+  const headerLogoSvg = document.querySelector('#sidebar-btn-open');
+  if (window.scrollY > 10 ) {
+    adminHeader.classList.add('scrolled');
+    headerLogoSvg.classList.add('scrolled');
+  } else {
+    adminHeader.classList.remove('scrolled');
+    headerLogoSvg.classList.remove('scrolled');
+  }
+});
 
 /**
  * Handle product form submission
@@ -446,7 +673,7 @@ async function handleProductSubmit(e) {
 
   const quantityOnHand = toBaseQuantity(quantityOnHandInput, salesUnit);
   const lowStockThreshold = toBaseQuantity(lowStockThresholdInput, salesUnit);
-  const saleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.1 : 0.01) : 1;
+  const saleStep = inventoryType === 'weight' ? (salesUnit === 'kg' ? 0.01 : 0.01) : 1;
   const baseUnit = inventoryType === 'weight' ? 'g' : 'pcs';
 
   if (!productId || !name || !Number.isFinite(price) || !Number.isFinite(quantityOnHandInput) || !Number.isFinite(lowStockThresholdInput) || price < 0 || quantityOnHandInput < 0 || lowStockThresholdInput < 0) {
@@ -499,6 +726,77 @@ async function handleProductSubmit(e) {
     renderLowStockList();
 
     submitBtn.disabled = false;
+  } catch (error) {
+    console.error('Error saving product:', error);
+    showNotification(error.message || 'Failed to save product', 'error');
+    e.target.querySelector('button[type="submit"]').disabled = false;
+  }
+}
+
+async function handleProductEditSubmit(e, productId) {
+  e.preventDefault();
+
+  const name = document.getElementById('productNameEdit').value.trim();
+  const price = parseFloat(document.getElementById('productPriceEdit').value);
+  const quantityOnHandInput = parseFloat(document.getElementById('productStockEdit').value);
+  const inventoryType = document.getElementById('productInventoryTypeEdit').value;
+  const salesUnit = document.getElementById('productSalesUnitEdit').value;
+  const lowStockThresholdInput = parseFloat(document.getElementById('productLowStockThresholdEdit').value);
+  const description = document.getElementById('productDescriptionEdit').value.trim();
+
+  const toBaseQuantity = (quantity, unit) => {
+    if (inventoryType !== 'weight') return quantity;
+    if (unit === 'kg') return quantity * 1000;
+    return quantity;
+  };
+
+  const quantityOnHand = toBaseQuantity(quantityOnHandInput, salesUnit);
+  const lowStockThreshold = toBaseQuantity(lowStockThresholdInput, salesUnit);
+  const saleStep = inventoryType === 'weight' ? 0.01 : 1;
+  const baseUnit = inventoryType === 'weight' ? 'g' : 'pcs';
+
+  if (!name || !Number.isFinite(price) || !Number.isFinite(quantityOnHandInput) || !Number.isFinite(lowStockThresholdInput) || price < 0 || quantityOnHandInput < 0 || lowStockThresholdInput < 0) {
+    showNotification('Please fill in all required fields correctly', 'error');
+    return;
+  }
+
+  if (inventoryType === 'unit' && (!Number.isInteger(quantityOnHandInput) || !Number.isInteger(lowStockThresholdInput))) {
+    showNotification('Unit-based products must use whole numbers', 'error');
+    return;
+  }
+
+  try {
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    const productData = {
+      id: productId,
+      name,
+      price,
+      quantityOnHand,
+      stock: quantityOnHand,
+      inventoryType,
+      baseUnit,
+      salesUnit,
+      lowStockThreshold,
+      saleStep,
+      description,
+    };
+
+    await API.put(`/products/${productId}`, productData);
+    API.invalidateCache('/products');
+    API.invalidateCache('/products/low-stock');
+    showNotification('Product updated successfully!', 'success');
+
+    editingRowOriginalHTML = null;
+    editingRowId = null;
+    editingProductId = null;
+
+    await loadProducts(); // re-renders the whole table, including this row, from fresh data
+    document.getElementById('totalProducts').textContent = totalProductsCount;
+    await loadLowStockProducts();
+    document.getElementById('totalLowStock').textContent = lowStockItems.length;
+    renderLowStockList();
   } catch (error) {
     console.error('Error saving product:', error);
     showNotification(error.message || 'Failed to save product', 'error');
@@ -648,7 +946,7 @@ async function handleUserSubmit(e) {
 /**
  * Load transactions from API
  */
-async function loadTransactions() {
+async function loadTransactions() { 
   try {
     transactions = [];
     const limit = 10;
@@ -809,7 +1107,10 @@ async function loadReportData() {
       report = response.data;
       displayMonthlyReport(report, resultsDiv);
     } else if (reportType === 'inventory-status') {
-      const response = await API.getProducts(null, 10);
+      // check again later
+      // const response = await API.getProducts(null); //10
+      // should be work now but we gotta apply some caching to avoid too many requests
+      const response = await API.getLowStockProducts(null, 100);
       const inventoryProducts = response?.data && response.data.length > 0 ? response.data : [];
       displayInventoryStatusReport(inventoryProducts, resultsDiv);
     } else if (reportType === 'cashier-performance') {
@@ -881,33 +1182,33 @@ document.addEventListener('DOMContentLoaded', function() {
 function displayDailyReport(report, container) {
   const html = `
     <div class="report-card">
-      <h3>Daily Sales Report - ${report.date}</h3>
+      <h3>Laporan Harian Penjualan - ${report.date}</h3>
       <div class="report-summary">
         <div class="summary-item">
-          <span class="label">Total Transactions:</span>
+          <span class="label">Total Transaksi:</span>
           <span class="value">${report.totalTransactions}</span>
         </div>
         <div class="summary-item">
-          <span class="label">Total Revenue:</span>
+          <span class="label">Total Pendapatan:</span>
           <span class="value">${Formatter.formatCurrency(report.totalRevenue)}</span>
         </div>
         <div class="summary-item">
-          <span class="label">Total Items Sold:</span>
+          <span class="label">Total Item Terjual:</span>
           <span class="value">${report.totalItemsSold}</span>
         </div>
         <div class="summary-item">
-          <span class="label">Average Transaction:</span>
+          <span class="label">Rata-rata Transaksi:</span>
           <span class="value">${Formatter.formatCurrency(report.averageTransactionValue)}</span>
         </div>
       </div>
 
-      <h4>Payment Method Breakdown</h4>
+      <h4>Rincian Pembayaran</h4>
       <table class="report-table">
         <thead>
           <tr>
-            <th>Payment Method</th>
-            <th>Count</th>
-            <th>Total Amount</th>
+            <th>Metode Pembayaran</th>
+            <th>Jumlah</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -920,30 +1221,7 @@ function displayDailyReport(report, container) {
           `).join('')}
         </tbody>
       </table>
-
-      <h4>Top Products</h4>
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Price</th>
-            <th>Quantity Sold</th>
-            <th>Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${report.topProducts.length > 0 ? report.topProducts.map((product, index) => `
-            <tr>
-              <td>${index + 1}. ${product.name}</td>
-              <td>${Formatter.formatCurrency(product.price)}</td>
-              <td>${product.quantity}</td>
-              <td>${Formatter.formatCurrency(product.revenue)}</td>
-            </tr>
-          `).join('') : '<tr><td colspan="4" style="text-align: center;">No products sold</td></tr>'}
-        </tbody>
-      </table>
-
-      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('daily-report', 'Daily Sales Report')">📥 Export to CSV</button>
+      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('daily-report', 'Daily Sales Report')">Export ke CSV</button>
     </div>
   `;
   container.innerHTML = html;
@@ -957,33 +1235,29 @@ function displayMonthlyReport(report, container) {
   
   const html = `
     <div class="report-card">
-      <h3>Monthly Sales Report - ${monthName}</h3>
+      <h3>Laporan Bulanan Penjualan - ${monthName}</h3>
       <div class="report-summary">
         <div class="summary-item">
-          <span class="label">Total Transactions:</span>
+          <span class="label">Total Transaksi:</span>
           <span class="value">${report.totalTransactions}</span>
         </div>
         <div class="summary-item">
-          <span class="label">Total Revenue:</span>
+          <span class="label">Total Pendapatan:</span>
           <span class="value">${Formatter.formatCurrency(report.totalRevenue)}</span>
         </div>
         <div class="summary-item">
-          <span class="label">Total Items Sold:</span>
-          <span class="value">${report.totalItemsSold}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Average Transaction:</span>
+          <span class="label">Rata-rata Transaksi:</span>
           <span class="value">${Formatter.formatCurrency(report.averageTransactionValue)}</span>
         </div>
       </div>
 
-      <h4>Payment Method Breakdown</h4>
+      <h4>Rincian Pembayaran</h4>
       <table class="report-table">
         <thead>
           <tr>
-            <th>Payment Method</th>
-            <th>Count</th>
-            <th>Total Amount</th>
+            <th>Metode Pembayaran</th>
+            <th>Jumlah</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -997,13 +1271,13 @@ function displayMonthlyReport(report, container) {
         </tbody>
       </table>
 
-      <h4>Daily Breakdown</h4>
+      <h4>Rincian Harian</h4>
       <table class="report-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Transactions</th>
-            <th>Revenue</th>
+            <th>Tanggal</th>
+            <th>Transaksi</th>
+            <th>Pendapatan</th>
           </tr>
         </thead>
         <tbody>
@@ -1019,7 +1293,7 @@ function displayMonthlyReport(report, container) {
         </tbody>
       </table>
 
-      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('monthly-report', 'Monthly Sales Report')">📥 Export to CSV</button>
+      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('monthly-report', 'Monthly Sales Report')">Export Ke CSV</button>
     </div>
   `;
   container.innerHTML = html;
@@ -1095,7 +1369,7 @@ function displayInventoryStatusReport(productsList, container) {
         </tbody>
       </table>
 
-      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('inventory-status', 'Inventory Status Report')">📥 Export to CSV</button>
+      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('inventory-status', 'Inventory Status Report')">Export ke CSV</button>
     </div>
   `;
   container.innerHTML = html;
@@ -1104,40 +1378,41 @@ function displayInventoryStatusReport(productsList, container) {
 /**
  * Display cashier performance report
  */
-function displayCashierPerformanceReport(report, container) {
-  const html = `
-    <div class="report-card">
-      <h3>Cashier Performance Report</h3>
-      <p style="color: var(--gray-500); margin-bottom: 20px;">Period: ${report.period.startDate} to ${report.period.endDate}</p>
+// not being used for now, bu keeping it just in case
+// function displayCashierPerformanceReport(report, container) {
+//   const html = `
+//     <div class="report-card">
+//       <h3>Cashier Performance Report</h3>
+//       <p style="color: var(--gray-500); margin-bottom: 20px;">Period: ${report.period.startDate} to ${report.period.endDate}</p>
 
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>Cashier Name</th>
-            <th>Transactions</th>
-            <th>Items Sold</th>
-            <th>Total Revenue</th>
-            <th>Avg Transaction Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${report.cashiers.map(cashier => `
-            <tr>
-              <td>${cashier.cashierName}</td>
-              <td>${cashier.totalTransactions}</td>
-              <td>${cashier.totalItemsSold}</td>
-              <td>${Formatter.formatCurrency(cashier.totalRevenue)}</td>
-              <td>${Formatter.formatCurrency(cashier.averageTransactionValue)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+//       <table class="report-table">
+//         <thead>
+//           <tr>
+//             <th>Cashier Name</th>
+//             <th>Transactions</th>
+//             <th>Items Sold</th>
+//             <th>Total Revenue</th>
+//             <th>Avg Transaction Value</th>
+//           </tr>
+//         </thead>
+//         <tbody>
+//           ${report.cashiers.map(cashier => `
+//             <tr>
+//               <td>${cashier.cashierName}</td>
+//               <td>${cashier.totalTransactions}</td>
+//               <td>${cashier.totalItemsSold}</td>
+//               <td>${Formatter.formatCurrency(cashier.totalRevenue)}</td>
+//               <td>${Formatter.formatCurrency(cashier.averageTransactionValue)}</td>
+//             </tr>
+//           `).join('')}
+//         </tbody>
+//       </table>
 
-      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('cashier-performance', 'Cashier Performance Report')">📥 Export to CSV</button>
-    </div>
-  `;
-  container.innerHTML = html;
-}
+//       <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('cashier-performance', 'Cashier Performance Report')">📥 Export to CSV</button>
+//     </div>
+//   `;
+//   container.innerHTML = html;
+// }
 
 /**
  * Display revenue trend report
@@ -1195,7 +1470,7 @@ function displayRevenueTrendReport(report, container) {
         </div>
       </div>
 
-      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('revenue-trend', 'Revenue Trend Report')">📥 Export to CSV</button>
+      <button class="btn btn-primary" style="margin-top: 20px;" onclick="exportReportToCSV('revenue-trend', 'Revenue Trend Report')">Export ke CSV</button>
     </div>
   `;
   container.innerHTML = html;

@@ -33,33 +33,6 @@ exports.ReportServices = {
                 id: doc.id,
                 ...doc.data(),
             }));
-            const report = {
-                date,
-                totalTransactions: transactions.length,
-                totalRevenue: transactions.reduce((sum, t) => sum + (t.total || 0), 0),
-                totalItemsSold: transactions.reduce((sum, t) => {
-                    const itemCount = t.items?.reduce((count, item) => count + item.quantity, 0) || 0;
-                    return sum + itemCount;
-                }, 0),
-                averageTransactionValue: 0,
-                paymentBreakdown: {},
-                topProducts: [],
-                transactions,
-            };
-            // Calculate average
-            if (transactions.length > 0) {
-                report.averageTransactionValue = report.totalRevenue / transactions.length;
-            }
-            // Payment breakdown
-            const paymentMethods = ['cash', 'qris'];
-            for (const method of paymentMethods) {
-                const filtered = transactions.filter(t => t.paymentMethod === method);
-                report.paymentBreakdown[method] = {
-                    count: filtered.length,
-                    total: filtered.reduce((sum, t) => sum + (t.total || 0), 0),
-                };
-            }
-            // Top products
             const productMap = new Map();
             for (const transaction of transactions) {
                 for (const item of transaction.items || []) {
@@ -79,6 +52,29 @@ exports.ReportServices = {
                         });
                     }
                 }
+            }
+            const report = {
+                date,
+                totalTransactions: transactions.length,
+                totalRevenue: transactions.reduce((sum, t) => sum + (t.total || 0), 0),
+                totalItemsSold: productMap.size,
+                averageTransactionValue: 0,
+                paymentBreakdown: {},
+                topProducts: [],
+                transactions,
+            };
+            // Calculate average
+            if (transactions.length > 0) {
+                report.averageTransactionValue = report.totalRevenue / transactions.length;
+            }
+            // Payment breakdown
+            const paymentMethods = ['cash', 'qris'];
+            for (const method of paymentMethods) {
+                const filtered = transactions.filter(t => t.paymentMethod === method);
+                report.paymentBreakdown[method] = {
+                    count: filtered.length,
+                    total: filtered.reduce((sum, t) => sum + (t.total || 0), 0),
+                };
             }
             report.topProducts = Array.from(productMap.values())
                 .sort((a, b) => b.revenue - a.revenue)
@@ -105,15 +101,19 @@ exports.ReportServices = {
                 id: doc.id,
                 ...doc.data(),
             }));
+            const uniqueProductKeys = new Set();
+            for (const transaction of transactions) {
+                for (const item of transaction.items || []) {
+                    const key = item.productId || item.name;
+                    uniqueProductKeys.add(key);
+                }
+            }
             const report = {
                 year,
                 month,
                 totalTransactions: transactions.length,
                 totalRevenue: transactions.reduce((sum, t) => sum + (t.total || 0), 0),
-                totalItemsSold: transactions.reduce((sum, t) => {
-                    const itemCount = t.items?.reduce((count, item) => count + item.quantity, 0) || 0;
-                    return sum + itemCount;
-                }, 0),
+                totalItemsSold: uniqueProductKeys.size,
                 averageTransactionValue: 0,
                 paymentBreakdown: {},
                 dailyBreakdown: {},

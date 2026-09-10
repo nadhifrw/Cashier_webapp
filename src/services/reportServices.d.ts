@@ -7,7 +7,7 @@ export declare const ReportServices: {
         date: string;
         totalTransactions: number;
         totalRevenue: any;
-        totalItemsSold: any;
+        totalItemsSold: number;
         averageTransactionValue: number;
         paymentBreakdown: Record<PaymentMethod, any>;
         topProducts: any[];
@@ -21,7 +21,7 @@ export declare const ReportServices: {
         month: number;
         totalTransactions: number;
         totalRevenue: any;
-        totalItemsSold: any;
+        totalItemsSold: number;
         averageTransactionValue: number;
         paymentBreakdown: Record<PaymentMethod, any>;
         dailyBreakdown: Record<string, any>;
